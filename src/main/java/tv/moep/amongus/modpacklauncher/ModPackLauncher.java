@@ -20,7 +20,12 @@ package tv.moep.amongus.modpacklauncher;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.sun.deploy.util.WinRegistry;
+import com.sun.jna.platform.win32.Advapi32Util;
+import com.sun.jna.platform.win32.WinReg;
+import tv.moep.amongus.modpacklauncher.remote.GitHubSource;
+import tv.moep.amongus.modpacklauncher.remote.GitLabSource;
+import tv.moep.amongus.modpacklauncher.remote.ModPackSource;
+import tv.moep.amongus.modpacklauncher.remote.SourceType;
 
 import javax.imageio.ImageIO;
 import java.awt.GraphicsEnvironment;
@@ -39,13 +44,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
+import java.util.zip.ZipFile;
 
 public class ModPackLauncher {
 
@@ -54,6 +64,8 @@ public class ModPackLauncher {
     private final String version;
     private final File tempFolder;
     private final Properties properties = new Properties();
+    private final Map<SourceType, ModPackSource> sources = new EnumMap<>(SourceType.class);
+    private final List<ModPackConfig> modPackConfigs = new ArrayList<>();
     private BufferedImage icon;
 
     private Cache<URL, String> queryCache = Caffeine.newBuilder().expireAfterWrite(30, TimeUnit.SECONDS).build();
@@ -75,6 +87,23 @@ public class ModPackLauncher {
     }
 
     private ModPackLauncher() {
+        sources.put(SourceType.GITHUB, new GitHubSource(this));
+        sources.put(SourceType.GITLAB, new GitLabSource(this));
+
+        // TODO: Read remote or from config
+        modPackConfigs.add(new ModPackConfig("ExtraRoles", getSource(SourceType.GITHUB), mapOf(
+                "user", "NotHunter101",
+                "repository", "ExtraRolesAmongUs"
+        )));
+        modPackConfigs.add(new ModPackConfig("TownOfUs", getSource(SourceType.GITHUB), mapOf(
+                "user", "slushiegoose",
+                "repository", "Town-Of-Us"
+        )));
+        modPackConfigs.add(new ModPackConfig("Sheriff Mod", getSource(SourceType.GITHUB), mapOf(
+                "user", "Woodi-dev",
+                "repository", "Among-Us-Sheriff-Mod"
+        )));
+
         try (FileReader reader = new FileReader("modpacklauncher.properties")) {
             properties.load(reader);
             if (properties.containsKey("steam-folder")) {
@@ -110,6 +139,23 @@ public class ModPackLauncher {
             log(Level.SEVERE, "This software requires a GUI!\n");
         }
     }
+
+    private Map<String, String> mapOf(String... args) {
+        Map<String, String> map = new LinkedHashMap<>();
+        for (int i = 0; i + 1 < args.length; i += 2) {
+            map.put(args[i], args[i + 1]);
+        }
+        return map;
+    }
+
+    private ModPackSource getSource(SourceType sourceType) {
+        return sources.get(sourceType);
+    }
+
+    public List<ModPackConfig> getModPackConfigs() {
+        return modPackConfigs;
+    }
+
 
     public String getName() {
         return name;
@@ -191,6 +237,12 @@ public class ModPackLauncher {
             }
         }
 
+        updateModPacks();
+        setProperty("steam-folder", file.getAbsolutePath());
+    }
+
+    private void updateModPacks() {
+        modPacks.clear();
         try {
             Files.list(steamFolder.toPath()).filter(p -> p.getFileName().toString().startsWith("Among Us - ") && Files.isDirectory(p)).forEach(p -> {
                 modPacks.add(p);
@@ -198,7 +250,6 @@ public class ModPackLauncher {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        setProperty("steam-folder", file.getAbsolutePath());
     }
 
     private String detectSteamFolder() {
@@ -206,8 +257,8 @@ public class ModPackLauncher {
         Path steamApps;
         Object o;
         if (os.contains("windows")) {
-            Object steamPath = WinRegistry.get(WinRegistry.HKEY_CURRENT_USER, "Software\\Valve\\Steam", "SteamPath");
-            if (!(steamPath instanceof String)) {
+            String steamPath = Advapi32Util.registryGetStringValue(WinReg.HKEY_CURRENT_USER, "Software\\Valve\\Steam", "ProductName");
+            if (steamPath != null) {
                 return null;
             }
             steamApps = Paths.get((String) steamPath, "steamapps");
@@ -257,47 +308,48 @@ public class ModPackLauncher {
         return modPacks;
     }
 
-    public void launch(Path modPack, boolean viaSteam) {
+    public void installModPack(ModPackConfig config) throws IOException {
+        Path downloaded = config.getSource().downloadUpdate(config).toPath();
+        Path modPackFolder = steamFolder.toPath().resolve("Among Us - " + config.getName());
+        if (Files.exists(modPackFolder)) {
+            deleteDirectory(modPackFolder);
+        }
+
+        copyDirectory(steamFolder.toPath().resolve("Among Us - Original"), modPackFolder);
+
+        ZipFile zip = new ZipFile(downloaded.toFile());
+        zip.stream().forEach(e -> {
+            try {
+                Path entryPath = modPackFolder.resolve(e.toString());
+                Files.createDirectories(entryPath);
+                Files.copy(zip.getInputStream(e), entryPath, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+        });
+
+        updateModPacks();
+    }
+
+    public void launch(Path modPack, boolean viaSteam) throws IOException {
         if (Files.exists(modPack) && Files.isDirectory(modPack)) {
             if (viaSteam) {
+                deleteDirectory(steamGame);
                 try {
-                    deleteFolder(steamGame);
-                    try {
-                        Files.delete(steamGame);
-                    } catch (IOException ignored) {}
+                    Files.delete(steamGame);
+                } catch (IOException ignored) {}
 
-                    Files.walkFileTree(modPack,  new SimpleFileVisitor<Path>() {
-                        @Override
-                        public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                            Files.createDirectories(steamGame.resolve(modPack.relativize(dir)));
-                            return FileVisitResult.CONTINUE;
-                        }
+                copyDirectory(modPack, steamGame);
 
-                        @Override
-                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                            Files.copy(file, steamGame.resolve(modPack.relativize(file)));
-                            return FileVisitResult.CONTINUE;
-                        }
-                    });
-
-                    Properties properties = new Properties();
-                    try (FileWriter writer = new FileWriter(steamGame.resolve("modpack.properties").toFile())) {
-                        properties.setProperty("name", modPack.getFileName().toString());
-                        properties.store(writer, getName() + " " + getVersion() + " Config");
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    startGame(steamGame.resolve("Among Us.exe").toString());
-                    //Desktop.getDesktop().browse(new URI("steam://run/945360/"));
-                } catch (IOException /*| URISyntaxException*/ e) {
-                    e.printStackTrace();
+                Properties properties = new Properties();
+                try (FileWriter writer = new FileWriter(steamGame.resolve("modpack.properties").toFile())) {
+                    properties.setProperty("name", modPack.getFileName().toString());
+                    properties.store(writer, getName() + " " + getVersion() + " Config");
                 }
+                startGame(steamGame.resolve("Among Us.exe").toString());
+                //Desktop.getDesktop().browse(new URI("steam://run/945360/"));
             } else {
-                try {
-                    startGame(modPack.resolve("Among Us.exe").toString());
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                startGame(modPack.resolve("Among Us.exe").toString());
             }
         }
     }
@@ -311,11 +363,11 @@ public class ModPackLauncher {
         }
     }
 
-    private void deleteFolder(Path folder) {
+    private void deleteDirectory(Path folder) {
         try {
             Files.list(folder).forEach(p -> {
                 if (Files.isDirectory(p)) {
-                    deleteFolder(p);
+                    deleteDirectory(p);
                 } else {
                     try {
                         Files.delete(p);
@@ -328,5 +380,21 @@ public class ModPackLauncher {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private void copyDirectory(Path source, Path target) throws IOException {
+        Files.walkFileTree(source,  new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                Files.createDirectories(target.resolve(source.relativize(dir)));
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Files.copy(file, target.resolve(source.relativize(file)));
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 }

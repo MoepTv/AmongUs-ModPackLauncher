@@ -9,16 +9,20 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import java.awt.Color;
 import java.awt.Cursor;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -45,14 +49,13 @@ public class ModPackLauncherGui extends JFrame {
     private static final Color ELEMENT_FOREROUND = new Color(0xEAEAEA);
 
     private final ModPackLauncher launcher;
-    private final JList packList;
+    private final JList<ModPackListEntry> packList;
 
     public ModPackLauncherGui(ModPackLauncher launcher) {
         super(launcher.getName() + " v" + launcher.getVersion());
         this.launcher = launcher;
         setIconImage(launcher.getIcon());
         getContentPane().setBackground(new Color(0x161515));
-        getContentPane().setFont(getContentPane().getFont().deriveFont(20f));
 
         setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
 
@@ -61,8 +64,9 @@ public class ModPackLauncherGui extends JFrame {
         JPanel pathLine = new JPanel();
         pathLine.setBackground(null);
         JTextField pathField = new JTextField(20);
+        pathField.setFont(getContentPane().getFont().deriveFont(14f));
         pathField.setBackground(ELEMENT_BACKGROUND);
-        pathField.setForeground(ELEMENT_FOREROUND);
+        pathField.setForeground(ELEMENT_FOREROUND.darker());
 
         File steamFolder = launcher.getSteamFolder();
         if (steamFolder != null && steamFolder.exists() && steamFolder.isDirectory()) {
@@ -71,7 +75,8 @@ public class ModPackLauncherGui extends JFrame {
         pathField.setEditable(false);
         pathField.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 1), new EmptyBorder(4, 4, 4, 4)));
 
-        JButton buttonSelectPath = new HoverButton("Select Steam game folder", ELEMENT_BACKGROUND, ELEMENT_FOREROUND, new Color(0x343434), ELEMENT_FOREROUND);
+        JButton buttonSelectPath = new HoverButton("Select Steam game folder", ELEMENT_BACKGROUND, ELEMENT_FOREROUND, new Color(0x232323), ELEMENT_FOREROUND);
+        buttonSelectPath.setFont(getContentPane().getFont().deriveFont(Font.BOLD, 14f));
         buttonSelectPath.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 1), new EmptyBorder(4, 4, 4, 4)));
         ActionListener steamFolderSelector = e -> {
             String[] paths = pathField.getText().split("\" \"");
@@ -82,8 +87,13 @@ public class ModPackLauncherGui extends JFrame {
                     path = path.substring(1, path.length() - 1);
                 }
             }
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            } catch (UnsupportedLookAndFeelException | ClassNotFoundException | InstantiationException | IllegalAccessException ignored) {}
             JFileChooser chooser = pathField.getText().isEmpty() || path.isEmpty() ? new JFileChooser()
                     : new JFileChooser(new File(path).getParentFile());
+            chooser.setBackground(ELEMENT_BACKGROUND);
+            chooser.setForeground(ELEMENT_FOREROUND);
             chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
             chooser.showOpenDialog(null);
             if (chooser.getSelectedFile() != null) {
@@ -105,7 +115,8 @@ public class ModPackLauncherGui extends JFrame {
         pathLine.add(buttonSelectPath);
         getContentPane().add(pathLine);
 
-        packList = new JList();
+        packList = new JList<>();
+        packList.setFont(getContentPane().getFont().deriveFont(14f));
         packList.setBackground(ELEMENT_BACKGROUND);
         packList.setForeground(ELEMENT_FOREROUND);
         packList.setSelectionBackground(ELEMENT_BACKGROUND);
@@ -115,17 +126,35 @@ public class ModPackLauncherGui extends JFrame {
 
         updateModPackList();
 
+        JPanel addMoreLine = new JPanel();
+        addMoreLine.setBackground(null);
+        JButton addMoreButton = new HoverButton("Install/update a Mod Pack...", ELEMENT_BACKGROUND, ELEMENT_FOREROUND, new Color(0x232323), ELEMENT_FOREROUND);
+        addMoreButton.setFont(getContentPane().getFont().deriveFont(14f));
+        addMoreButton.setBackground(ELEMENT_BACKGROUND);
+        addMoreButton.setForeground(ELEMENT_FOREROUND.darker());
+        addMoreButton.addActionListener(e -> {
+            new ModInstallGui(launcher, this).setVisible(true);
+        });
+
+        addMoreLine.add(addMoreButton);
+        getContentPane().add(addMoreLine);
+
         JButton launchGame = new HoverButton("Launch Game!", new Color(0xFFDE2A), Color.BLACK, new Color(0xF21717), Color.BLACK);
         launchGame.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 2), new EmptyBorder(10, 10, 10, 10)));
         launchGame.addActionListener(e -> {
             if (packList.getSelectedIndex() > -1 && packList.getSelectedIndex() < packList.getModel().getSize()) {
-                ModPackListEntry modPack = (ModPackListEntry) packList.getModel().getElementAt(packList.getSelectedIndex());
-                // TODO: Launch via Steam?
-                launcher.launch(modPack.getModPack(), true);
+                ModPackListEntry modPack = packList.getModel().getElementAt(packList.getSelectedIndex());
+                try {
+                    launcher.launch(modPack.getModPack(), true);
+                } catch (IOException ex) {
+                    JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    ex.printStackTrace();
+                }
             } else {
                 JOptionPane.showMessageDialog(this, "Please select the ModPack to launch!");
             }
         });
+        launchGame.setFont(getContentPane().getFont().deriveFont(Font.BOLD, 16f));
 
         JPanel launchLine = new JPanel();
         launchLine.setBackground(null);
@@ -141,7 +170,7 @@ public class ModPackLauncherGui extends JFrame {
         if (launcher.getSteamGame() == null || !Files.exists(launcher.getSteamGame())) {
             JOptionPane.showMessageDialog(this, "Among Us not found in Steam game folder?");
         } else {
-            DefaultListModel model = new DefaultListModel();
+            DefaultListModel<ModPackListEntry> model = new DefaultListModel<>();
             int selected = -1;
             for (int i = 0; i < launcher.getModPacks().size(); i++) {
                 Path modPack = launcher.getModPacks().get(i);
@@ -155,6 +184,7 @@ public class ModPackLauncherGui extends JFrame {
                 packList.setSelectedIndex(selected);
             }
         }
+        pack();
     }
 
     private class ModPackListEntry {
@@ -165,7 +195,7 @@ public class ModPackLauncherGui extends JFrame {
         }
 
         public String toString() {
-            return modPack.getFileName().toString();
+            return modPack.getFileName().toString().replace("Among Us - ", "");
         }
 
         public Path getModPack() {
@@ -196,6 +226,54 @@ public class ModPackLauncherGui extends JFrame {
                     setCursor(Cursor.getDefaultCursor());
                 }
             });
+        }
+    }
+
+    private class ModInstallGui extends JFrame {
+        public ModInstallGui(ModPackLauncher launcher, JFrame parent) {
+            super("Install new Mod Pack!");
+            setIconImage(launcher.getIcon());
+            getContentPane().setBackground(new Color(0x161515));
+
+            setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
+
+            setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+
+            JList<ModPackConfig> configList = new JList<>();
+            configList.setFont(getContentPane().getFont().deriveFont(14f));
+            configList.setBackground(ELEMENT_BACKGROUND);
+            configList.setForeground(ELEMENT_FOREROUND);
+            configList.setSelectionBackground(ELEMENT_BACKGROUND);
+            configList.setSelectionForeground(new Color(0xF21717));
+            DefaultListModel<ModPackConfig> model = new DefaultListModel<>();
+            for (ModPackConfig config : launcher.getModPackConfigs()) {
+                model.addElement(config);
+            }
+            configList.setModel(model);
+            configList.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    JList list = (JList) e.getSource();
+                    int index = list.locationToIndex(e.getPoint());
+                    ModPackConfig config = launcher.getModPackConfigs().get(index);
+                    setVisible(false);
+                    dispose();
+                    String version = config.getSource().getLatestVersion(config);
+                    try {
+                        launcher.installModPack(config);
+                        updateModPackList();
+                        JOptionPane.showMessageDialog(parent, "Installed " + config.getName() + " " + version + " from " + config.getSource().getName());
+                    } catch (IOException ex) {
+                        JOptionPane.showMessageDialog(parent, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                        ex.printStackTrace();
+                    }
+                }
+            });
+
+            getContentPane().add(configList);
+
+            pack();
+            setLocationRelativeTo(parent);
         }
     }
 }
