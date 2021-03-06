@@ -21,6 +21,7 @@ package tv.moep.amongus.modpacklauncher;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.sun.jna.platform.win32.Advapi32Util;
+import com.sun.jna.platform.win32.Win32Exception;
 import com.sun.jna.platform.win32.WinReg;
 import tv.moep.amongus.modpacklauncher.remote.GitHubSource;
 import tv.moep.amongus.modpacklauncher.remote.GitLabSource;
@@ -261,11 +262,15 @@ public class ModPackLauncher {
         Path steamApps;
         Object o;
         if (os.contains("windows")) {
-            String steamPath = Advapi32Util.registryGetStringValue(WinReg.HKEY_CURRENT_USER, "Software\\Valve\\Steam", "ProductName");
-            if (steamPath != null) {
+            try {
+                String steamPath = Advapi32Util.registryGetStringValue(WinReg.HKEY_CURRENT_USER, "SOFTWARE\\Valve\\Steam", "SteamPath");
+                if (steamPath == null) {
+                    return null;
+                }
+                steamApps = Paths.get(steamPath, "steamapps");
+            } catch (Win32Exception e) {
                 return null;
             }
-            steamApps = Paths.get((String) steamPath, "steamapps");
         } else if (os.contains("linux")) {
             steamApps = Paths.get(System.getProperties().getProperty("user.home"), ".steam", "steam", "steamapps");
         } else if (os.contains("darwin")) {
