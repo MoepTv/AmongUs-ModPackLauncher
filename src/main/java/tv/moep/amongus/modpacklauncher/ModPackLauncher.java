@@ -106,13 +106,15 @@ public class ModPackLauncher {
                 "repository", "Among-Us-Sheriff-Mod"
         )));
 
-        try (FileReader reader = new FileReader("modpacklauncher.properties")) {
-            properties.load(reader);
-            if (properties.containsKey("steam-folder")) {
-                setSteamFolder(new File(properties.getProperty("steam-folder")));
+        if (new File("modpacklauncher.properties").exists()) {
+            try (FileReader reader = new FileReader("modpacklauncher.properties")) {
+                properties.load(reader);
+                if (properties.containsKey("steam-folder")) {
+                    setSteamFolder(new File(properties.getProperty("steam-folder")));
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
         if (steamFolder == null) {
             String detectedSteam = detectSteamFolder();
