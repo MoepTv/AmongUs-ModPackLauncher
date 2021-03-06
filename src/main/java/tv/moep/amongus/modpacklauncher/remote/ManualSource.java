@@ -1,7 +1,7 @@
 package tv.moep.amongus.modpacklauncher.remote;
 
 /*
- * AmongUs-ModPackLauncher - AmongUs-ModPackLauncher
+ * AmongUs-ModPackLauncher - modpacklauncher
  * Copyright (c) 2021 Max Lee (max@themoep.de)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,10 +18,24 @@ package tv.moep.amongus.modpacklauncher.remote;
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-public enum SourceType {
-    MANUAL,
-    DIRECT,
-    CURSEFORGE,
-    GITHUB,
-    GITLAB;
+import tv.moep.amongus.modpacklauncher.ModPackConfig;
+import tv.moep.amongus.modpacklauncher.ModPackLauncher;
+
+import java.util.Collections;
+
+public class ManualSource extends DirectSource {
+
+    public ManualSource(String name, ModPackLauncher launcher, String download) {
+        super(name, launcher, null, download, Collections.emptyList());
+    }
+
+    @Override
+    public String getLatestVersion(ModPackConfig config) {
+        return "unknown";
+    }
+
+    @Override
+    public SourceType getType() {
+        return SourceType.MANUAL;
+    }
 }

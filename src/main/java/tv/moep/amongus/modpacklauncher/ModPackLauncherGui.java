@@ -1,30 +1,36 @@
 package tv.moep.amongus.modpacklauncher;
 
+import tv.moep.amongus.modpacklauncher.remote.ManualSource;
+
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
-import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 
 /*
  * AmongUs-ModPackLauncher - AmongUs-ModPackLauncher
@@ -59,7 +65,7 @@ public class ModPackLauncherGui extends JFrame {
 
         setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
 
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         JPanel pathLine = new JPanel();
         pathLine.setBackground(null);
@@ -77,7 +83,7 @@ public class ModPackLauncherGui extends JFrame {
 
         JButton buttonSelectPath = new HoverButton("Select Steam game folder", ELEMENT_BACKGROUND, ELEMENT_FOREROUND, new Color(0x232323), ELEMENT_FOREROUND);
         buttonSelectPath.setFont(getContentPane().getFont().deriveFont(Font.BOLD, 14f));
-        buttonSelectPath.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 1), new EmptyBorder(4, 4, 4, 4)));
+        buttonSelectPath.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 2), new EmptyBorder(3, 3, 3, 3)));
         ActionListener steamFolderSelector = e -> {
             String[] paths = pathField.getText().split("\" \"");
             String path = "";
@@ -87,9 +93,7 @@ public class ModPackLauncherGui extends JFrame {
                     path = path.substring(1, path.length() - 1);
                 }
             }
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (UnsupportedLookAndFeelException | ClassNotFoundException | InstantiationException | IllegalAccessException ignored) {}
+
             JFileChooser chooser = pathField.getText().isEmpty() || path.isEmpty() ? new JFileChooser()
                     : new JFileChooser(new File(path).getParentFile());
             chooser.setBackground(ELEMENT_BACKGROUND);
@@ -129,7 +133,8 @@ public class ModPackLauncherGui extends JFrame {
         JPanel addMoreLine = new JPanel();
         addMoreLine.setBackground(null);
         JButton addMoreButton = new HoverButton("Install/update a Mod Pack...", ELEMENT_BACKGROUND, ELEMENT_FOREROUND, new Color(0x232323), ELEMENT_FOREROUND);
-        addMoreButton.setFont(getContentPane().getFont().deriveFont(14f));
+        addMoreButton.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 2), new EmptyBorder(3, 3, 3, 3)));
+        addMoreButton.setFont(getContentPane().getFont().deriveFont(Font.BOLD, 14f));
         addMoreButton.setBackground(ELEMENT_BACKGROUND);
         addMoreButton.setForeground(ELEMENT_FOREROUND.darker());
         addMoreButton.addActionListener(e -> {
@@ -234,10 +239,13 @@ public class ModPackLauncherGui extends JFrame {
             super("Install new Mod Pack!");
             setIconImage(launcher.getIcon());
             getContentPane().setBackground(new Color(0x161515));
+            getContentPane().setFont(getContentPane().getFont().deriveFont(14f));
 
             setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
 
             setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+
+            getContentPane().add(new JLabel("Select Mod Pack:"));
 
             JList<ModPackConfig> configList = new JList<>();
             configList.setFont(getContentPane().getFont().deriveFont(14f));
@@ -260,8 +268,11 @@ public class ModPackLauncherGui extends JFrame {
                     dispose();
                     String version = config.getSource().getLatestVersion(config);
                     try {
+                        JFrame loading = displayLoading();
                         launcher.installModPack(config);
                         updateModPackList();
+                        loading.setVisible(false);
+                        loading.dispose();
                         JOptionPane.showMessageDialog(parent, "Installed " + config.getName() + " " + version + " from " + config.getSource().getName());
                     } catch (IOException ex) {
                         JOptionPane.showMessageDialog(parent, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -272,9 +283,127 @@ public class ModPackLauncherGui extends JFrame {
 
             getContentPane().add(configList);
 
+            getContentPane().add(new JLabel(" "));
+            getContentPane().add(new JLabel("Install from zip file link:"));
+
+            JPanel manualInstallLine = new JPanel();
+            manualInstallLine.setBackground(null);
+
+            JTextField nameField = new HintTextField(10, "Name");
+            nameField.setBackground(ELEMENT_BACKGROUND);
+            nameField.setForeground(ELEMENT_FOREROUND.darker());
+            nameField.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 1), new EmptyBorder(4, 4, 4, 4)));
+            manualInstallLine.add(nameField);
+            nameField.setCaretColor(ELEMENT_FOREROUND.brighter());
+
+            JTextField linkField = new HintTextField(20, "Zip-URL");
+            linkField.setBackground(ELEMENT_BACKGROUND);
+            linkField.setForeground(ELEMENT_FOREROUND.darker());
+            linkField.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 1), new EmptyBorder(4, 4, 4, 4)));
+            manualInstallLine.add(linkField);
+            linkField.setCaretColor(ELEMENT_FOREROUND.brighter());
+
+            JButton linkButton = new HoverButton("Add", ELEMENT_BACKGROUND, ELEMENT_FOREROUND, new Color(0x232323), ELEMENT_FOREROUND);
+            linkButton.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 2), new EmptyBorder(3, 3, 3, 3)));
+            linkButton.setFont(getContentPane().getFont().deriveFont(Font.BOLD, 14f));
+            linkButton.addActionListener(e -> {
+                if (nameField.getText().isEmpty()) {
+                    JOptionPane.showMessageDialog(parent, "Please specify a name!", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                if (linkField.getText().isEmpty()) {
+                    JOptionPane.showMessageDialog(parent, "Please specify a link!", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                ModPackConfig config = new ModPackConfig(nameField.getText(), new ManualSource(nameField.getText() + " Source", launcher, linkField.getText()), Collections.emptyMap());
+                setVisible(false);
+                dispose();
+                try {
+                    JFrame loading = displayLoading();
+                    launcher.installModPack(config);
+                    updateModPackList();
+                    loading.setVisible(false);
+                    loading.dispose();
+                    JOptionPane.showMessageDialog(parent, "Installed " + config.getName());
+                } catch (IOException ex) {
+                    JOptionPane.showMessageDialog(parent, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    ex.printStackTrace();
+                }
+            });
+            manualInstallLine.add(linkButton);
+            getContentPane().add(manualInstallLine);
+
+            for (Component component : getContentPane().getComponents()) {
+                if (!component.getFont().isBold()) {
+                    component.setFont(null);
+                }
+                if (component instanceof JLabel) {
+                    component.setForeground(ELEMENT_FOREROUND);
+                }
+            }
+
             pack();
             setLocationRelativeTo(parent);
         }
+
+        private class HintTextField extends JTextField implements FocusListener {
+            private final String hint;
+
+            public HintTextField(int columns, String hint) {
+                super(columns);
+                this.hint = hint;
+                setText(hint);
+                setToolTipText(hint);
+                addFocusListener(this);
+            }
+
+            @Override
+            public void focusGained(FocusEvent e) {
+                if (super.getText().equals(hint)) {
+                    setText("");
+                    setForeground(getForeground().brighter());
+                }
+            }
+
+            @Override
+            public void focusLost(FocusEvent e) {
+                if (super.getText().equals("")) {
+                    setText(hint);
+                    setForeground(getForeground().darker());
+                }
+            }
+
+            @Override
+            public String getText() {
+                if (super.getText().equals(hint)) {
+                    return "";
+                }
+                return super.getText();
+            }
+        }
+    }
+
+    private JFrame displayLoading() {
+        JFrame frame = new JFrame("Loading...");
+        // TODO: Display overlayed loading gif
+        //frame.setUndecorated(true);
+        //frame.setBackground(new Color(0, 0, 0, 0));
+        frame.setIconImage(launcher.getLoadingImage());
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.setLayout(new BoxLayout(frame.getContentPane(), BoxLayout.Y_AXIS));
+
+        frame.getContentPane().add(new JLabel("Loading..."));
+
+        //JLabel image = new JLabel(new ImageIcon(launcher.getClass().getClassLoader().getResource("images/loading.gif")));
+        //image.setBounds(0, 0, 100, 100);
+        //frame.getContentPane().add(image);
+
+        frame.pack();
+        frame.setLocationRelativeTo(this);
+        frame.setVisible(true);
+        return frame;
     }
 }
 

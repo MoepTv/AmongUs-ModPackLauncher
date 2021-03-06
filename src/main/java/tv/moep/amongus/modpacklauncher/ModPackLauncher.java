@@ -55,6 +55,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public class ModPackLauncher {
@@ -67,6 +68,7 @@ public class ModPackLauncher {
     private final Map<SourceType, ModPackSource> sources = new EnumMap<>(SourceType.class);
     private final List<ModPackConfig> modPackConfigs = new ArrayList<>();
     private BufferedImage icon;
+    private BufferedImage loadingImage;
 
     private Cache<URL, String> queryCache = Caffeine.newBuilder().expireAfterWrite(30, TimeUnit.SECONDS).build();
 
@@ -296,6 +298,10 @@ public class ModPackLauncher {
         return icon;
     }
 
+    public BufferedImage getLoadingImage() {
+        return loadingImage;
+    }
+
     public Path getSteamGame() {
         return steamGame;
     }
@@ -321,8 +327,11 @@ public class ModPackLauncher {
         zip.stream().forEach(e -> {
             try {
                 Path entryPath = modPackFolder.resolve(e.toString());
-                Files.createDirectories(entryPath);
-                Files.copy(zip.getInputStream(e), entryPath, StandardCopyOption.REPLACE_EXISTING);
+                if (e.isDirectory()) {
+                    Files.createDirectory(entryPath);
+                } else {
+                    Files.copy(zip.getInputStream(e), entryPath, StandardCopyOption.REPLACE_EXISTING);
+                }
             } catch (IOException e1) {
                 e1.printStackTrace();
             }
