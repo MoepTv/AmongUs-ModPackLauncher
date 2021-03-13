@@ -4,7 +4,6 @@ import tv.moep.amongus.modpacklauncher.remote.ManualSource;
 
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
-import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -269,7 +268,7 @@ public class ModPackLauncherGui extends JFrame {
                     String version = config.getSource().getLatestVersion(config);
                     try {
                         JFrame loading = displayLoading();
-                        launcher.installModPack(config);
+                        launcher.installModPack(config, version);
                         updateModPackList();
                         loading.setVisible(false);
                         loading.dispose();
@@ -322,7 +321,7 @@ public class ModPackLauncherGui extends JFrame {
                 dispose();
                 try {
                     JFrame loading = displayLoading();
-                    launcher.installModPack(config);
+                    launcher.installModPack(config, "unknown");
                     updateModPackList();
                     loading.setVisible(false);
                     loading.dispose();

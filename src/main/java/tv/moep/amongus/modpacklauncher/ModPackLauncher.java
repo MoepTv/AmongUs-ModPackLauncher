@@ -42,6 +42,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
@@ -56,7 +57,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
-import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public class ModPackLauncher {
@@ -325,7 +325,7 @@ public class ModPackLauncher {
         return modPacks;
     }
 
-    public void installModPack(ModPackConfig config) throws IOException {
+    public void installModPack(ModPackConfig config, String version) throws IOException {
         Path downloaded = config.getSource().downloadUpdate(config).toPath();
         Path modPackFolder = steamFolder.toPath().resolve("Among Us - " + config.getName());
         if (Files.exists(modPackFolder)) {
@@ -348,6 +348,31 @@ public class ModPackLauncher {
                 e1.printStackTrace();
             }
         });
+        zip.close();
+
+        try {
+            Files.delete(downloaded);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // Delete steam_appid.txt, otherwise Steam might auto-update the modded game
+        try {
+            Files.delete(modPackFolder.resolve("steam_appid.txt"));
+        } catch (NoSuchFileException ignored) {
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        File propertiesFile = modPackFolder.resolve("modpack.properties").toFile();
+        if (!propertiesFile.exists()) {
+            Properties properties = new Properties();
+            try (FileWriter writer = new FileWriter(propertiesFile)) {
+                properties.setProperty("name", config.getName());
+                properties.setProperty("version", version);
+                properties.store(writer, getName() + " " + getVersion() + " Config");
+            }
+        }
 
         updateModPacks();
     }
@@ -362,10 +387,13 @@ public class ModPackLauncher {
 
                 copyDirectory(modPack, steamGame);
 
-                Properties properties = new Properties();
-                try (FileWriter writer = new FileWriter(steamGame.resolve("modpack.properties").toFile())) {
-                    properties.setProperty("name", modPack.getFileName().toString());
-                    properties.store(writer, getName() + " " + getVersion() + " Config");
+                File propertiesFile = steamGame.resolve("modpack.properties").toFile();
+                if (!propertiesFile.exists()) {
+                    Properties properties = new Properties();
+                    try (FileWriter writer = new FileWriter(propertiesFile)) {
+                        properties.setProperty("name", modPack.getFileName().toString());
+                        properties.store(writer, getName() + " " + getVersion() + " Config");
+                    }
                 }
                 startGame(steamGame.resolve("Among Us.exe").toString());
                 //Desktop.getDesktop().browse(new URI("steam://run/945360/"));
