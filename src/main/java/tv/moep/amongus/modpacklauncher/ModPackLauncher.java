@@ -338,6 +338,7 @@ public class ModPackLauncher {
         zip.stream().forEach(e -> {
             try {
                 Path entryPath = modPackFolder.resolve(e.toString());
+                Files.createDirectories(entryPath.getParent());
                 if (e.isDirectory()) {
                     Files.createDirectory(entryPath);
                 } else {
