@@ -94,6 +94,10 @@ public class ModPackLauncher {
         sources.put(SourceType.GITLAB, new GitLabSource(this));
 
         // TODO: Read remote or from config
+        modPackConfigs.add(new ModPackConfig("TheOtherRoles", getSource(SourceType.GITHUB), mapOf(
+                "user", "Eisbison",
+                "repository", "TheOtherRoles"
+        )));
         modPackConfigs.add(new ModPackConfig("ExtraRoles", getSource(SourceType.GITHUB), mapOf(
                 "user", "NotHunter101",
                 "repository", "ExtraRolesAmongUs"
