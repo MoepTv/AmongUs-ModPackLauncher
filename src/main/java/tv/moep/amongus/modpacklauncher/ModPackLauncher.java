@@ -67,6 +67,7 @@ public class ModPackLauncher {
     private static Properties appProperties = new Properties();
     private final String name;
     private final String version;
+    private final String latestVersion;
     private final File tempFolder;
     private final Properties properties = new Properties();
     private final Map<SourceType, ModPackSource> sources = new EnumMap<>(SourceType.class);
@@ -95,6 +96,11 @@ public class ModPackLauncher {
     private ModPackLauncher() {
         sources.put(SourceType.GITHUB, new GitHubSource(this));
         sources.put(SourceType.GITLAB, new GitLabSource(this));
+
+        latestVersion = new ModPackConfig(getName(), getSource(SourceType.GITHUB), mapOf(
+                "user", "MoepTv",
+                "repository", "AmongUs-ModPackLauncher"
+        )).getLatestVersion();
 
         // TODO: Read remote or from config
         modPackConfigs.add(new ModPackConfig("TheOtherRoles", getSource(SourceType.GITHUB), mapOf(
@@ -175,6 +181,57 @@ public class ModPackLauncher {
 
     public String getVersion() {
         return version;
+    }
+
+    public String getLatestVersion() {
+        return latestVersion;
+    }
+
+    public boolean hasNewerVersion() {
+        if (latestVersion == null) {
+            return false;
+        }
+        String installedVersion = sanitize(getVersion());
+        String latestVersion = sanitize(getLatestVersion());
+
+        if (installedVersion.indexOf('.') > 0 && latestVersion.indexOf('.') > 0) {
+            try {
+                int[] installedSemVer = parseSemVer(installedVersion);
+                int[] latestSemVer = parseSemVer(latestVersion);
+                return compareTo(latestSemVer, installedSemVer) > 0;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private int compareTo(int[] latestSemVer, int[] installedSemVer) {
+        for (int i = 0; i < installedSemVer.length && i < latestSemVer.length; i++) {
+            int latestVersionInt = latestSemVer[i];
+            int installedVersionInt = installedSemVer[i];
+            if (latestVersionInt > installedVersionInt) {
+                return 1;
+            } else if (latestVersionInt < installedVersionInt) {
+                return -1;
+            }
+        }
+
+        if (installedSemVer.length < latestSemVer.length) {
+            return 1;
+        } else if (installedSemVer.length > latestSemVer.length) {
+            return -1;
+        }
+        return 0;
+    }
+
+    private int[] parseSemVer(String version) throws NumberFormatException {
+        String[] split = version.split("\\.");
+        int[] semVer = new int[split.length];
+        for (int i = 0; i < split.length; i++) {
+            semVer[i] = Integer.parseInt(split[i]);
+        }
+        return semVer;
     }
 
     public void log(Level level, String message, Throwable... exception) {
@@ -343,7 +400,7 @@ public class ModPackLauncher {
     }
 
     public void installModPack(ModPackConfig config, String version) throws IOException {
-        Path downloaded = config.getSource().downloadUpdate(config).toPath();
+        Path downloaded = config.downloadUpdate().toPath();
         Path modPackFolder = steamFolder.toPath().resolve("Among Us - " + config.getName());
         if (Files.exists(modPackFolder)) {
             deleteDirectory(modPackFolder);

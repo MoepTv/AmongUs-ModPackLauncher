@@ -167,6 +167,10 @@ public class ModPackLauncherGui extends JFrame {
         pack();
         //setLocationByPlatform(true);
         setLocationRelativeTo(null);
+
+        if (launcher.hasNewerVersion()) {
+            JOptionPane.showMessageDialog(this, "The update " + launcher.getLatestVersion() + " is available! (Installed: " + launcher.getVersion() + ")", "Update available!", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 
     private void updateModPackList() {
@@ -264,7 +268,7 @@ public class ModPackLauncherGui extends JFrame {
                     ModPackConfig config = launcher.getModPackConfigs().get(index);
                     setVisible(false);
                     dispose();
-                    String version = config.getSource().getLatestVersion(config);
+                    String version = config.getLatestVersion();
                     try {
                         JFrame loading = displayLoading();
                         launcher.installModPack(config, version);

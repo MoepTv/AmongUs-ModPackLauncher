@@ -20,6 +20,7 @@ package tv.moep.amongus.modpacklauncher;
 
 import tv.moep.amongus.modpacklauncher.remote.ModPackSource;
 
+import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -59,4 +60,22 @@ public class ModPackConfig {
     public ModPackSource getSource() {
         return source;
     }
+
+
+    /**
+     * Get the latest version of a plugin.
+     * @return The latest version string or <code>null</code> if not found or an error occured
+     */
+    public String getLatestVersion() {
+        return source.getLatestVersion(this);
+    }
+
+    /**
+     * Download the latest version of a plugin into the target folder specified by the Updater.
+     * @return A reference to the newly downloaded file or <code>null</code> if not found
+     */
+    public File downloadUpdate() {
+        return source.downloadUpdate(this);
+    }
+
 }

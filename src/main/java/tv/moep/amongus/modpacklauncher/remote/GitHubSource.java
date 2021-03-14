@@ -76,10 +76,7 @@ public class GitHubSource extends ModPackSource {
                                 for (JsonElement asset : ((JsonObject) release).getAsJsonArray("assets")) {
                                     if (asset.isJsonObject()
                                             && ((JsonObject) asset).has("content_type")) {
-                                        String contentType = ((JsonObject) asset).get("content_type").getAsString();
-                                        if (ContentType.ZIP.matches(contentType)) {
-                                            return ((JsonObject) release).get("tag_name").getAsString();
-                                        }
+                                        return ((JsonObject) release).get("tag_name").getAsString();
                                     }
                                 }
                             }
