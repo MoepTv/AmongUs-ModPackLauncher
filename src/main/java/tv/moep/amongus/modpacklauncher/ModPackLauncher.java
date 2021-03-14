@@ -407,7 +407,9 @@ public class ModPackLauncher {
                     Properties properties = new Properties();
                     try (FileWriter writer = new FileWriter(propertiesFile)) {
                         properties.setProperty("name", modPack.getName());
-                        properties.setProperty("version", modPack.getVersion());
+                        if (modPack.getVersion() != null) {
+                            properties.setProperty("version", modPack.getVersion());
+                        }
                         properties.store(writer, getName() + " " + getVersion() + " Config");
                     }
                 }
