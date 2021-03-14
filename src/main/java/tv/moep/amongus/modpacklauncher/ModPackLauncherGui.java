@@ -1,6 +1,5 @@
 package tv.moep.amongus.modpacklauncher;
 
-import sun.misc.Launcher;
 import tv.moep.amongus.modpacklauncher.remote.ManualSource;
 
 import javax.swing.BoxLayout;
