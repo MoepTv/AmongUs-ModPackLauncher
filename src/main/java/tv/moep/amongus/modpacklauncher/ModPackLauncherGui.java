@@ -1,5 +1,6 @@
 package tv.moep.amongus.modpacklauncher;
 
+import sun.misc.Launcher;
 import tv.moep.amongus.modpacklauncher.remote.ManualSource;
 
 import javax.swing.BoxLayout;
@@ -28,7 +29,6 @@ import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Collections;
 
 /*
@@ -171,14 +171,14 @@ public class ModPackLauncherGui extends JFrame {
     }
 
     private void updateModPackList() {
-        if (launcher.getSteamGame() == null || !Files.exists(launcher.getSteamGame())) {
+        if (launcher.getSteamGame() == null || !Files.exists(launcher.getSteamGame()) && !new File(launcher.getSteamFolder(), "Among Us - Original").exists()) {
             JOptionPane.showMessageDialog(this, "Among Us not found in Steam game folder?");
         } else {
             DefaultListModel<ModPackListEntry> model = new DefaultListModel<>();
             int selected = -1;
             for (int i = 0; i < launcher.getModPacks().size(); i++) {
-                Path modPack = launcher.getModPacks().get(i);
-                if (modPack.getFileName().toString().equals(launcher.getSelected())) {
+                ModPack modPack = launcher.getModPacks().get(i);
+                if (modPack.getName().equals(launcher.getSelected())) {
                     selected = i;
                 }
                 model.addElement(new ModPackListEntry(modPack));
@@ -192,17 +192,17 @@ public class ModPackLauncherGui extends JFrame {
     }
 
     private class ModPackListEntry {
-        private final Path modPack;
+        private final ModPack modPack;
 
-        public ModPackListEntry(Path modPack) {
+        public ModPackListEntry(ModPack modPack) {
             this.modPack = modPack;
         }
 
         public String toString() {
-            return modPack.getFileName().toString().replace("Among Us - ", "");
+            return modPack.getName() + (modPack.getVersion() != null ? " (" + modPack.getVersion() + ")" : "");
         }
 
-        public Path getModPack() {
+        public ModPack getModPack() {
             return modPack;
         }
     }
