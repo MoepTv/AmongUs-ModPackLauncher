@@ -290,6 +290,10 @@ public class ModPackLauncher {
         return version.split("[\\s(\\-#\\[{]", 2)[0];
     }
 
+    public Properties getProperties() {
+        return properties;
+    }
+
     public File getSteamFolder() {
         return steamFolder;
     }
@@ -376,7 +380,7 @@ public class ModPackLauncher {
         return properties;
     }
 
-    private void setProperty(String key, String value) {
+    public void setProperty(String key, String value) {
         properties.setProperty(key, value);
         try (FileWriter writer = new FileWriter("modpacklauncher.properties")) {
             properties.store(writer, getName() + " " + getVersion() + " Config");
@@ -457,25 +461,25 @@ public class ModPackLauncher {
 
     public void launch(ModPack modPack, boolean viaSteam) throws IOException {
         if (Files.exists(modPack.getPath()) && Files.isDirectory(modPack.getPath())) {
-            if (viaSteam) {
-                deleteDirectory(steamGame);
-                try {
-                    Files.delete(steamGame);
-                } catch (IOException ignored) {}
+            deleteDirectory(steamGame);
+            try {
+                Files.delete(steamGame);
+            } catch (IOException ignored) {}
 
-                copyDirectory(modPack.getPath(), steamGame);
+            copyDirectory(modPack.getPath(), steamGame);
 
-                File propertiesFile = steamGame.resolve("modpack.properties").toFile();
-                if (!propertiesFile.exists()) {
-                    Properties properties = new Properties();
-                    try (FileWriter writer = new FileWriter(propertiesFile)) {
-                        properties.setProperty("name", modPack.getName());
-                        if (modPack.getVersion() != null) {
-                            properties.setProperty("version", modPack.getVersion());
-                        }
-                        properties.store(writer, getName() + " " + getVersion() + " Config");
+            File propertiesFile = steamGame.resolve("modpack.properties").toFile();
+            if (!propertiesFile.exists()) {
+                Properties properties = new Properties();
+                try (FileWriter writer = new FileWriter(propertiesFile)) {
+                    properties.setProperty("name", modPack.getName());
+                    if (modPack.getVersion() != null) {
+                        properties.setProperty("version", modPack.getVersion());
                     }
+                    properties.store(writer, getName() + " " + getVersion() + " Config");
                 }
+            }
+            if (viaSteam) {
                 try {
                     Desktop.getDesktop().browse(new URI("steam://run/945360/"));
                 } catch (URISyntaxException e) {

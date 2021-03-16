@@ -5,6 +5,7 @@ import tv.moep.amongus.modpacklauncher.remote.ManualSource;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -147,11 +148,17 @@ public class ModPackLauncherGui extends JFrame {
 
         JButton launchGame = new HoverButton("Launch Game!", new Color(0xFFDE2A), Color.BLACK, new Color(0xF21717), Color.BLACK);
         launchGame.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 2), new EmptyBorder(10, 10, 10, 10)));
+
+        JCheckBox steamBox = new JCheckBox("Via Steam", "true".equals(launcher.getProperties().getProperty("launch-via-steam", "true")));
+        steamBox.setBackground(null);
+        steamBox.setForeground(ELEMENT_FOREROUND);
+        steamBox.addActionListener(e -> launcher.setProperty("launch-via-steam", String.valueOf(steamBox.isSelected())));
+
         launchGame.addActionListener(e -> {
             if (packList.getSelectedIndex() > -1 && packList.getSelectedIndex() < packList.getModel().getSize()) {
                 ModPackListEntry modPack = packList.getModel().getElementAt(packList.getSelectedIndex());
                 try {
-                    launcher.launch(modPack.getModPack(), true);
+                    launcher.launch(modPack.getModPack(), steamBox.isSelected());
                 } catch (IOException ex) {
                     JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                     ex.printStackTrace();
@@ -165,6 +172,7 @@ public class ModPackLauncherGui extends JFrame {
         JPanel launchLine = new JPanel();
         launchLine.setBackground(null);
         launchLine.add(launchGame);
+        launchLine.add(steamBox);
         getContentPane().add(launchLine);
 
         pack();
