@@ -68,6 +68,7 @@ public class ModPackLauncher {
     private final String name;
     private final String version;
     private final String latestVersion;
+    private final ModPackConfig updateConfig;
     private final File tempFolder;
     private final Properties properties = new Properties();
     private final Map<SourceType, ModPackSource> sources = new EnumMap<>(SourceType.class);
@@ -97,10 +98,11 @@ public class ModPackLauncher {
         sources.put(SourceType.GITHUB, new GitHubSource(this));
         sources.put(SourceType.GITLAB, new GitLabSource(this));
 
-        latestVersion = new ModPackConfig(getName(), getSource(SourceType.GITHUB), mapOf(
+        updateConfig = new ModPackConfig(getName(), getSource(SourceType.GITHUB), mapOf(
                 "user", "MoepTv",
                 "repository", "AmongUs-ModPackLauncher"
-        )).getLatestVersion();
+        ));
+        latestVersion = updateConfig.getLatestVersion();
 
         // TODO: Read remote or from config
         modPackConfigs.add(new ModPackConfig("TheOtherRoles", getSource(SourceType.GITHUB), mapOf(
@@ -152,7 +154,7 @@ public class ModPackLauncher {
         }
 
         if (System.console() == null && !GraphicsEnvironment.isHeadless()) {
-            new ModPackLauncherGui(this).setVisible(true);
+            new ModPackLauncherGui(this);
         } else {
             log(Level.SEVERE, "This software requires a GUI!\n");
         }
@@ -185,6 +187,10 @@ public class ModPackLauncher {
 
     public String getLatestVersion() {
         return latestVersion;
+    }
+
+    public String getUpdateUrl() {
+        return updateConfig.getUpdateUrl();
     }
 
     public boolean hasNewerVersion() {

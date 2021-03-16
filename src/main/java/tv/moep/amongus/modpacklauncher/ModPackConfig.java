@@ -78,4 +78,11 @@ public class ModPackConfig {
         return source.downloadUpdate(this);
     }
 
+    /**
+     * Get the URL where to download updates from manually
+     * @return The update url
+     */
+    public String getUpdateUrl() {
+        return source.getUpdateUrl(this);
+    }
 }

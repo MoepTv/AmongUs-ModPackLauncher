@@ -48,6 +48,7 @@ public class GitHubSource extends ModPackSource {
     private static final List<String> REQUIRED_PLACEHOLDERS = Arrays.asList("user");
     private static final String API_HEADER = "application/vnd.github.v3+json";
     private static final String RELEASES_URL = "https://api.github.com/repos/%user%/%repository%/releases";
+    private static final String UPDATE_URL = "https://github.com/%user%/%repository%/releases/tag/%version%";
 
     public GitHubSource(ModPackLauncher launcher) {
         super(launcher, REQUIRED_PLACEHOLDERS);
@@ -159,6 +160,12 @@ public class GitHubSource extends ModPackSource {
             launcher.log(Level.SEVERE, "Invalid URL for getting latest version for " + config.getName() + " from source " + getName() + "! " + e.getMessage());
         }
         return null;
+    }
+
+    @Override
+    public String getUpdateUrl(ModPackConfig config) {
+        String latestVersion = getLatestVersion(config);
+        return new Replacer().replace(config.getPlaceholders("repository")).replace("version", latestVersion).replaceIn(UPDATE_URL);
     }
 
     @Override

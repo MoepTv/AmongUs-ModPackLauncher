@@ -43,17 +43,24 @@ public abstract class ModPackSource {
 
     /**
      * Get the latest version of a plugin.
-     * @param config The plugin config
+     * @param config The mod pack config
      * @return The latest version string or <code>null</code> if not found or an error occured
      */
     public abstract String getLatestVersion(ModPackConfig config);
 
     /**
      * Download the latest version of a plugin into the target folder specified by the Updater.
-     * @param config The plugin config
+     * @param config The mod pack config
      * @return A reference to the newly downloaded file or <code>null</code> if not found
      */
     public abstract File downloadUpdate(ModPackConfig config);
+
+    /**
+     * Get the URL where to download updates from manually
+     * @param config The mod pack config
+     * @return The update url
+     */
+    public abstract String getUpdateUrl(ModPackConfig config);
 
     /**
      * Get the name of the source

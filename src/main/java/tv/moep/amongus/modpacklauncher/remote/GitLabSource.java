@@ -42,8 +42,10 @@ import java.util.logging.Level;
 public class GitLabSource extends ModPackSource {
 
     private static final List<String> REQUIRED_PLACEHOLDERS = Arrays.asList("user");
-    private static final String API_URL = "https://gitlab.com/api/v4/";
+    private static final String URL = "https://gitlab.com";
+    private static final String API_URL = "%url%/api/v4/";
     private static final String RELEASES_URL = "%apiurl%projects/%user%%2F%repository%/releases";
+    private static final String UPDATE_URL = "%url%/%user%/%repository%/-/releases/%version%";
 
     public GitLabSource(ModPackLauncher launcher) {
         super(launcher, REQUIRED_PLACEHOLDERS);
@@ -52,7 +54,7 @@ public class GitLabSource extends ModPackSource {
     @Override
     public String getLatestVersion(ModPackConfig config) {
         try {
-            Replacer replacer = new Replacer().replace("apiurl", API_URL).replace(config.getPlaceholders("repository"));
+            Replacer replacer = new Replacer().replace("apiurl", API_URL).replace("url", URL).replace(config.getPlaceholders("repository"));
             String[] properties = new String[0];
             if (config.getPlaceholders().containsKey("token")) {
                 properties = new String[] {"Private-Token", config.getPlaceholders().get("token")};
@@ -146,6 +148,12 @@ public class GitLabSource extends ModPackSource {
             launcher.log(Level.SEVERE, "Invalid URL for getting latest version for " + config.getName() + " from source " + getName() + "! " + e.getMessage());
         }
         return null;
+    }
+
+    @Override
+    public String getUpdateUrl(ModPackConfig config) {
+        String version = getLatestVersion(config);
+        return new Replacer().replace("url", URL).replace(config.getPlaceholders("repository")).replace("version", version).replaceIn(UPDATE_URL);
     }
 
     @Override

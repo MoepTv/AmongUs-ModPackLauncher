@@ -18,6 +18,7 @@ import javax.swing.border.LineBorder;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -27,6 +28,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.Collections;
 
@@ -169,8 +172,26 @@ public class ModPackLauncherGui extends JFrame {
         setLocationRelativeTo(null);
 
         if (launcher.hasNewerVersion()) {
-            JOptionPane.showMessageDialog(this, "The update " + launcher.getLatestVersion() + " is available! (Installed: " + launcher.getVersion() + ")", "Update available!", JOptionPane.INFORMATION_MESSAGE);
+            int n = JOptionPane.showOptionDialog(
+                    this,
+                    "The update " + launcher.getLatestVersion() + " is available! (Installed: " + launcher.getVersion() + ") ",
+                    "Update available!",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.INFORMATION_MESSAGE,
+                    null,
+                    new String[] {"Go to download site", "Download later"},
+                    "Go to download site"
+            );
+            if (n == 0) {
+                try {
+                    Desktop.getDesktop().browse(new URI(launcher.getUpdateUrl()));
+                    ModPackLauncherGui.this.setVisible(false);
+                    ModPackLauncherGui.this.dispose();
+                    return;
+                } catch (URISyntaxException | IOException ignored) {}
+            }
         }
+        setVisible(true);
     }
 
     private void updateModPackList() {

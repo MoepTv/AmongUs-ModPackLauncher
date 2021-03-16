@@ -86,6 +86,11 @@ public class DirectSource extends ModPackSource {
     }
 
     @Override
+    public String getUpdateUrl(ModPackConfig config) {
+        return new Replacer().replace(config.getPlaceholders()).replaceIn(download);
+    }
+
+    @Override
     public String getName() {
         return name;
     }
