@@ -42,4 +42,8 @@ public class ModPack {
     public String getVersion() {
         return version;
     }
+
+    public String getId() {
+        return name + " - " + version;
+    }
 }

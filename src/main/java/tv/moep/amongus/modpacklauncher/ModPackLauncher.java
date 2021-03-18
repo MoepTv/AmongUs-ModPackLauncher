@@ -39,19 +39,24 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.CopyOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,9 +65,14 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
 
 public class ModPackLauncher {
+
+    private final static Pattern VERSION_PATTERN = Pattern.compile(".*(\\d{4}\\.\\d{1,2}\\.\\d{1,2}).*");
 
     private static Properties appProperties = new Properties();
     private final String name;
@@ -78,7 +88,7 @@ public class ModPackLauncher {
 
     private Cache<URL, String> queryCache = Caffeine.newBuilder().expireAfterWrite(30, TimeUnit.SECONDS).build();
 
-    private File steamFolder = null;
+    private Path steamFolder = null;
     private String selected = null;
     private List<ModPack> modPacks = new ArrayList<>();
     private Path steamGame = null;
@@ -126,7 +136,7 @@ public class ModPackLauncher {
             try (FileReader reader = new FileReader("modpacklauncher.properties")) {
                 properties.load(reader);
                 if (properties.containsKey("steam-folder")) {
-                    setSteamFolder(new File(properties.getProperty("steam-folder")));
+                    setSteamFolder(Paths.get(properties.getProperty("steam-folder")));
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -135,7 +145,7 @@ public class ModPackLauncher {
         if (steamFolder == null) {
             String detectedSteam = detectSteamFolder();
             if (detectedSteam != null) {
-                setSteamFolder(new File(detectedSteam));
+                setSteamFolder(Paths.get(detectedSteam));
             }
         }
         name = appProperties.getProperty("application.name");
@@ -151,6 +161,12 @@ public class ModPackLauncher {
             icon = ImageIO.read(ModPackLauncher.class.getClassLoader().getResourceAsStream("images/icon.png"));
         } catch (IOException e) {
             icon = null;
+        }
+
+        try {
+            loadingImage = ImageIO.read(ModPackLauncher.class.getClassLoader().getResourceAsStream("images/loading.gif"));
+        } catch (IOException e) {
+            loadingImage = null;
         }
 
         if (System.console() == null && !GraphicsEnvironment.isHeadless()) {
@@ -294,27 +310,29 @@ public class ModPackLauncher {
         return properties;
     }
 
-    public File getSteamFolder() {
+    public Path getSteamFolder() {
         return steamFolder;
     }
 
-    public void setSteamFolder(File file) {
-        steamFolder = file;
-        steamGame = steamFolder.toPath().resolve("Among Us");
-        Path originalGame = new File(steamFolder, "Among Us - Original").toPath();
+    public void setSteamFolder(Path path) {
+        steamFolder = path;
+        steamGame = steamFolder.resolve("Among Us");
         if (Files.exists(steamGame) && Files.isDirectory(steamGame)) {
             try {
                 selected = readSelected();
-                if (selected == null) {
-                    selected = originalGame.getFileName().toString();
-                    if (!Files.exists(originalGame)) {
-                        Files.copy(steamGame, originalGame);
-                        File propertiesFile = originalGame.resolve("modpack.properties").toFile();
-                        Properties properties = new Properties();
-                        try (FileWriter writer = new FileWriter(propertiesFile)) {
-                            properties.setProperty("name", "Original");
-                            properties.setProperty("version", "unknown");
-                            properties.store(writer, getName() + " " + getVersion() + " Config");
+                if (selected == null || selected.startsWith("Original")) {
+                    String version = parseGameVersion(steamGame);
+                    if (version != null) {
+                        Path originalGame = steamFolder.resolve("Among Us - Original - " + version);
+                        selected = "Original - " + version;
+                        if (!Files.exists(originalGame)) {
+                            copyDirectory(steamGame, originalGame);
+                            Properties properties = new Properties();
+                            try (OutputStream out = Files.newOutputStream(originalGame.resolve("modpack.properties"))) {
+                                properties.setProperty("name", "Original");
+                                properties.setProperty("version", version);
+                                properties.store(out, getName() + " " + getVersion() + " Config");
+                            }
                         }
                     }
                 }
@@ -324,15 +342,23 @@ public class ModPackLauncher {
         }
 
         updateModPacks();
-        setProperty("steam-folder", file.getAbsolutePath());
+        setProperty("steam-folder", path.toAbsolutePath().toString());
     }
 
     private void updateModPacks() {
         modPacks.clear();
         try {
-            Files.list(steamFolder.toPath()).filter(p -> p.getFileName().toString().startsWith("Among Us - ") && Files.isDirectory(p)).forEach(p -> {
+            Files.list(steamFolder).filter(p -> p.getFileName().toString().startsWith("Among Us - ") && Files.isDirectory(p)).forEach(p -> {
                 Properties properties = loadModPackProperties(p);
-                modPacks.add(new ModPack(p, properties.contains("name") ? properties.getProperty("name") : p.getFileName().toString().replace("Among Us - ", ""), properties.getProperty("version")));
+                modPacks.add(new ModPack(p, properties.containsKey("name") ? properties.getProperty("name") : p.getFileName().toString().replace("Among Us - ", ""), properties.getProperty("version")));
+            });
+            modPacks.sort((o1, o2) -> {
+                if (o1.getName().equals("Original") && !o2.getName().equals("Orginal")) {
+                    return -1;
+                } else if (!o1.getName().equals("Original") && o2.getName().equals("Orginal")) {
+                    return 1;
+                }
+                return o1.getId().compareToIgnoreCase(o2.getId());
             });
         } catch (IOException e) {
             e.printStackTrace();
@@ -342,7 +368,6 @@ public class ModPackLauncher {
     private String detectSteamFolder() {
         String os = System.getProperties().getProperty("os.name").toLowerCase(Locale.ROOT);
         Path steamApps;
-        Object o;
         if (os.contains("windows")) {
             try {
                 String steamPath = Advapi32Util.registryGetStringValue(WinReg.HKEY_CURRENT_USER, "SOFTWARE\\Valve\\Steam", "SteamPath");
@@ -364,7 +389,11 @@ public class ModPackLauncher {
     }
 
     private String readSelected() {
-        return loadModPackProperties(getSteamGame()).getProperty("name");
+        Properties properties = loadModPackProperties(getSteamGame());
+        if (properties.containsKey("name") && properties.containsKey("version")) {
+            return properties.getProperty("name") + " - " + properties.getProperty("version");
+        }
+        return null;
     }
 
     private Properties loadModPackProperties(Path path) {
@@ -409,14 +438,14 @@ public class ModPackLauncher {
         return modPacks;
     }
 
-    public void installModPack(ModPackConfig config, String version) throws IOException {
+    public void installModPack(Path baseDirectory, ModPackConfig config, String version) throws IOException {
         Path downloaded = config.downloadUpdate().toPath();
-        Path modPackFolder = steamFolder.toPath().resolve("Among Us - " + config.getName());
+        Path modPackFolder = steamFolder.resolve("Among Us - " + config.getName());
         if (Files.exists(modPackFolder)) {
             deleteDirectory(modPackFolder);
         }
 
-        copyDirectory(steamFolder.toPath().resolve("Among Us - Original"), modPackFolder);
+        copyDirectory(baseDirectory, modPackFolder);
 
         ZipFile zip = new ZipFile(downloaded.toFile());
         zip.stream().forEach(e -> {
@@ -535,5 +564,39 @@ public class ModPackLauncher {
                 return FileVisitResult.CONTINUE;
             }
         });
+    }
+
+    private String parseGameVersion(Path directory) throws IOException {
+        if (!Files.isDirectory(directory)) {
+            throw new NotDirectoryException(directory + " is not a directory!");
+        }
+
+        Path gameFile = directory.resolve("Among Us_Data/globalgamemanagers");
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(Files.newInputStream(gameFile)))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains("Innersloth") && line.contains("Among Us")) {
+                    Matcher matcher = VERSION_PATTERN.matcher(line);
+                    if (matcher.matches()) {
+                        return matcher.group(1);
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public List<Path> getOriginalGames() {
+        try {
+            return Files.list(steamFolder)
+                    .filter(p -> Files.isDirectory(p))
+                    .filter(p -> p.getFileName().toString().startsWith("Among Us - Original - "))
+                    .collect(Collectors.toList());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return Collections.emptyList();
     }
 }

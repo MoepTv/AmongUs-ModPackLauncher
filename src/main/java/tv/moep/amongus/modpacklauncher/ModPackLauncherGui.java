@@ -32,7 +32,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
+import java.util.List;
 
 /*
  * AmongUs-ModPackLauncher - AmongUs-ModPackLauncher
@@ -76,9 +78,9 @@ public class ModPackLauncherGui extends JFrame {
         pathField.setBackground(ELEMENT_BACKGROUND);
         pathField.setForeground(ELEMENT_FOREROUND.darker());
 
-        File steamFolder = launcher.getSteamFolder();
-        if (steamFolder != null && steamFolder.exists() && steamFolder.isDirectory()) {
-            pathField.setText(steamFolder.getAbsolutePath());
+        Path steamFolder = launcher.getSteamFolder();
+        if (steamFolder != null && Files.exists(steamFolder) && Files.isDirectory(steamFolder)) {
+            pathField.setText(steamFolder.toAbsolutePath().toString());
         }
         pathField.setEditable(false);
         pathField.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 1), new EmptyBorder(4, 4, 4, 4)));
@@ -104,7 +106,7 @@ public class ModPackLauncherGui extends JFrame {
             chooser.showOpenDialog(null);
             if (chooser.getSelectedFile() != null) {
                 pathField.setText(chooser.getSelectedFile().getAbsolutePath());
-                launcher.setSteamFolder(chooser.getSelectedFile());
+                launcher.setSteamFolder(chooser.getSelectedFile().toPath());
                 updateModPackList();
                 pack();
             }
@@ -203,14 +205,14 @@ public class ModPackLauncherGui extends JFrame {
     }
 
     private void updateModPackList() {
-        if (launcher.getSteamGame() == null || !Files.exists(launcher.getSteamGame()) && !new File(launcher.getSteamFolder(), "Among Us - Original").exists()) {
+        if (launcher.getSteamGame() == null || !Files.exists(launcher.getSteamGame())) {
             JOptionPane.showMessageDialog(this, "Among Us not found in Steam game folder?");
         } else {
             DefaultListModel<ModPackListEntry> model = new DefaultListModel<>();
             int selected = -1;
             for (int i = 0; i < launcher.getModPacks().size(); i++) {
                 ModPack modPack = launcher.getModPacks().get(i);
-                if (modPack.getName().equals(launcher.getSelected())) {
+                if (modPack.getId().equals(launcher.getSelected())) {
                     selected = i;
                 }
                 model.addElement(new ModPackListEntry(modPack));
@@ -297,10 +299,14 @@ public class ModPackLauncherGui extends JFrame {
                     ModPackConfig config = launcher.getModPackConfigs().get(index);
                     setVisible(false);
                     dispose();
-                    String version = config.getLatestVersion();
+                    Path baseDirectory = getBaseDirectory(parent, config);
+                    if (baseDirectory == null) {
+                        return;
+                    }
                     try {
                         JFrame loading = displayLoading();
-                        launcher.installModPack(config, version);
+                        String version = config.getLatestVersion();
+                        launcher.installModPack(baseDirectory, config, version);
                         updateModPackList();
                         loading.setVisible(false);
                         loading.dispose();
@@ -351,9 +357,13 @@ public class ModPackLauncherGui extends JFrame {
                 ModPackConfig config = new ModPackConfig(nameField.getText(), new ManualSource(nameField.getText() + " Source", launcher, linkField.getText()), Collections.emptyMap());
                 setVisible(false);
                 dispose();
+                Path baseDirectory = getBaseDirectory(parent, config);
+                if (baseDirectory == null) {
+                    return;
+                }
                 try {
                     JFrame loading = displayLoading();
-                    launcher.installModPack(config, "unknown");
+                    launcher.installModPack(baseDirectory, config, "unknown");
                     updateModPackList();
                     loading.setVisible(false);
                     loading.dispose();
@@ -377,6 +387,20 @@ public class ModPackLauncherGui extends JFrame {
 
             pack();
             setLocationRelativeTo(parent);
+        }
+
+        private Path getBaseDirectory(JFrame parent, ModPackConfig modPack) {
+            List<Path> originalGames = launcher.getOriginalGames();
+            Object gameVersion = JOptionPane.showInputDialog(
+                    parent,
+                    "Select game version for " + modPack.getName() + ":",
+                    "Select Game Version",
+                    JOptionPane.QUESTION_MESSAGE,
+                    null,
+                    originalGames.stream().map(p -> p.getFileName().toString().substring("Among Us - Original - ".length())).toArray(),
+                    originalGames.get(originalGames.size() - 1).getFileName().toString().substring("Among Us - Original - ".length())
+            );
+            return gameVersion == null ? null : launcher.getSteamFolder().resolve("Among Us - Original - " + gameVersion);
         }
 
         private class HintTextField extends JTextField implements FocusListener {
