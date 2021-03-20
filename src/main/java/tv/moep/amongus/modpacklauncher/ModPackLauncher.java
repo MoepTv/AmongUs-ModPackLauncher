@@ -44,7 +44,6 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.file.CopyOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -55,8 +54,8 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -73,6 +72,7 @@ import java.util.zip.ZipFile;
 public class ModPackLauncher {
 
     private final static Pattern VERSION_PATTERN = Pattern.compile(".*(\\d{4}\\.\\d{1,2}\\.\\d{1,2}).*");
+    private static final Pattern SEM_VER_PATTERN = Pattern.compile(".*?(\\d+\\.\\d+(\\.\\d+)?).*");
 
     private static Properties appProperties = new Properties();
     private final String name;
@@ -82,7 +82,7 @@ public class ModPackLauncher {
     private final File tempFolder;
     private final Properties properties = new Properties();
     private final Map<SourceType, ModPackSource> sources = new EnumMap<>(SourceType.class);
-    private final List<ModPackConfig> modPackConfigs = new ArrayList<>();
+    private final Map<String, ModPackConfig> modPackConfigs = new LinkedHashMap<>();
     private BufferedImage icon;
     private BufferedImage loadingImage;
 
@@ -115,19 +115,19 @@ public class ModPackLauncher {
         latestVersion = updateConfig.getLatestVersion();
 
         // TODO: Read remote or from config
-        modPackConfigs.add(new ModPackConfig("TheOtherRoles", getSource(SourceType.GITHUB), mapOf(
+        addModPackConfig(new ModPackConfig("TheOtherRoles", getSource(SourceType.GITHUB), mapOf(
                 "user", "Eisbison",
                 "repository", "TheOtherRoles"
         )));
-        modPackConfigs.add(new ModPackConfig("ExtraRoles", getSource(SourceType.GITHUB), mapOf(
+        addModPackConfig(new ModPackConfig("ExtraRoles", getSource(SourceType.GITHUB), mapOf(
                 "user", "NotHunter101",
                 "repository", "ExtraRolesAmongUs"
         )));
-        modPackConfigs.add(new ModPackConfig("TownOfUs", getSource(SourceType.GITHUB), mapOf(
+        addModPackConfig(new ModPackConfig("TownOfUs", getSource(SourceType.GITHUB), mapOf(
                 "user", "slushiegoose",
                 "repository", "Town-Of-Us"
         )));
-        modPackConfigs.add(new ModPackConfig("Sheriff Mod", getSource(SourceType.GITHUB), mapOf(
+        addModPackConfig(new ModPackConfig("Sheriff Mod", getSource(SourceType.GITHUB), mapOf(
                 "user", "Woodi-dev",
                 "repository", "Among-Us-Sheriff-Mod"
         )));
@@ -188,10 +188,17 @@ public class ModPackLauncher {
         return sources.get(sourceType);
     }
 
-    public List<ModPackConfig> getModPackConfigs() {
-        return modPackConfigs;
+    public Collection<ModPackConfig> getModPackConfigs() {
+        return modPackConfigs.values();
     }
 
+    private void addModPackConfig(ModPackConfig modPackConfig) {
+        modPackConfigs.put(modPackConfig.getName(), modPackConfig);
+    }
+
+    public ModPackConfig getModPackConfig(String name) {
+        return modPackConfigs.get(name);
+    }
 
     public String getName() {
         return name;
@@ -210,17 +217,21 @@ public class ModPackLauncher {
     }
 
     public boolean hasNewerVersion() {
-        if (latestVersion == null) {
+        return isVersionNewer(getVersion(), getLatestVersion());
+    }
+
+    public boolean isVersionNewer(String version, String toCompare) {
+        if (version == null || toCompare == null) {
             return false;
         }
-        String installedVersion = sanitize(getVersion());
-        String latestVersion = sanitize(getLatestVersion());
+        String sanVersion = sanitize(version);
+        String sanToCompare = sanitize(toCompare);
 
-        if (installedVersion.indexOf('.') > 0 && latestVersion.indexOf('.') > 0) {
+        if (sanVersion.indexOf('.') > 0 && sanToCompare.indexOf('.') > 0) {
             try {
-                int[] installedSemVer = parseSemVer(installedVersion);
-                int[] latestSemVer = parseSemVer(latestVersion);
-                return compareTo(latestSemVer, installedSemVer) > 0;
+                int[] semVer = parseSemVer(sanVersion);
+                int[] toCompareSemVer = parseSemVer(sanToCompare);
+                return compareTo(toCompareSemVer, semVer) > 0;
             } catch (NumberFormatException e) {
                 return false;
             }
@@ -303,7 +314,11 @@ public class ModPackLauncher {
     }
 
     public static String sanitize(String version) {
-        return version.split("[\\s(\\-#\\[{]", 2)[0];
+        Matcher matcher = SEM_VER_PATTERN.matcher(version);
+        if (matcher.matches()) {
+            return matcher.group(1);
+        }
+        return version;
     }
 
     public Properties getProperties() {

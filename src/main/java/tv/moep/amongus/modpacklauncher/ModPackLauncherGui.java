@@ -202,6 +202,50 @@ public class ModPackLauncherGui extends JFrame {
             }
         }
         setVisible(true);
+
+        boolean updated = false;
+        for (ModPack modPack : launcher.getModPacks()) {
+            ModPackConfig config = launcher.getModPackConfig(modPack.getName());
+            if (config != null && modPack.getVersion() != null && !"unknown".equalsIgnoreCase(modPack.getVersion())) {
+                String latest = config.getLatestVersion();
+                if (launcher.isVersionNewer(modPack.getVersion(), latest)) {
+                    int n = JOptionPane.showOptionDialog(
+                            this,
+                            "Mod " + modPack.getName() + " has a new version " + latest + " available! (Installed: " + modPack.getVersion() + ") ",
+                            "Mod " + modPack.getName() + " update available!",
+                            JOptionPane.YES_NO_OPTION,
+                            JOptionPane.INFORMATION_MESSAGE,
+                            null,
+                            new String[] {"Update Mod", "Don't update"},
+                            "Update Mod"
+                    );
+                    if (n == 0) {
+                        Path baseDirectory = getBaseDirectory(this, config);
+                        if (baseDirectory == null) {
+                            return;
+                        }
+                        try {
+                            JFrame loading = displayLoading();
+                            String version = config.getLatestVersion();
+                            launcher.installModPack(baseDirectory, config, version);
+                            updateModPackList();
+                            loading.setVisible(false);
+                            loading.dispose();
+                            JOptionPane.showMessageDialog(this, "Installed " + config.getName() + " " + version + " from " + config.getSource().getName());
+                        } catch (IOException ex) {
+                            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                            ex.printStackTrace();
+                        }
+
+                        updated = true;
+                    }
+                }
+            }
+        }
+
+        if (updated) {
+            updateModPackList();
+        }
     }
 
     private void updateModPackList() {
@@ -296,7 +340,7 @@ public class ModPackLauncherGui extends JFrame {
                 public void mouseClicked(MouseEvent e) {
                     JList list = (JList) e.getSource();
                     int index = list.locationToIndex(e.getPoint());
-                    ModPackConfig config = launcher.getModPackConfigs().get(index);
+                    ModPackConfig config = (ModPackConfig) list.getModel().getElementAt(index);
                     setVisible(false);
                     dispose();
                     Path baseDirectory = getBaseDirectory(parent, config);
@@ -389,20 +433,6 @@ public class ModPackLauncherGui extends JFrame {
             setLocationRelativeTo(parent);
         }
 
-        private Path getBaseDirectory(JFrame parent, ModPackConfig modPack) {
-            List<Path> originalGames = launcher.getOriginalGames();
-            Object gameVersion = JOptionPane.showInputDialog(
-                    parent,
-                    "Select game version for " + modPack.getName() + ":",
-                    "Select Game Version",
-                    JOptionPane.QUESTION_MESSAGE,
-                    null,
-                    originalGames.stream().map(p -> p.getFileName().toString().substring("Among Us - Original - ".length())).toArray(),
-                    originalGames.get(originalGames.size() - 1).getFileName().toString().substring("Among Us - Original - ".length())
-            );
-            return gameVersion == null ? null : launcher.getSteamFolder().resolve("Among Us - Original - " + gameVersion);
-        }
-
         private class HintTextField extends JTextField implements FocusListener {
             private final String hint;
 
@@ -438,6 +468,20 @@ public class ModPackLauncherGui extends JFrame {
                 return super.getText();
             }
         }
+    }
+
+    private Path getBaseDirectory(JFrame parent, ModPackConfig modPack) {
+        List<Path> originalGames = launcher.getOriginalGames();
+        Object gameVersion = JOptionPane.showInputDialog(
+                parent,
+                "Select game version for " + modPack.getName() + ":",
+                "Select Game Version",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                originalGames.stream().map(p -> p.getFileName().toString().substring("Among Us - Original - ".length())).toArray(),
+                originalGames.get(originalGames.size() - 1).getFileName().toString().substring("Among Us - Original - ".length())
+        );
+        return gameVersion == null ? null : launcher.getSteamFolder().resolve("Among Us - Original - " + gameVersion);
     }
 
     private JFrame displayLoading() {
