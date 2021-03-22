@@ -49,6 +49,7 @@ public class GitHubSource extends ModPackSource {
     private static final String API_HEADER = "application/vnd.github.v3+json";
     private static final String RELEASES_URL = "https://api.github.com/repos/%user%/%repository%/releases";
     private static final String UPDATE_URL = "https://github.com/%user%/%repository%/releases/tag/%version%";
+    private static final String INFO_URL = "https://github.com/%user%/%repository%#readme";
 
     public GitHubSource(ModPackLauncher launcher) {
         super(launcher, REQUIRED_PLACEHOLDERS);
@@ -106,7 +107,7 @@ public class GitHubSource extends ModPackSource {
             String s = launcher.query(new URL(new Replacer().replace(config.getPlaceholders("repository")).replaceIn(RELEASES_URL)), properties.toArray(new String[0]));
             if (s != null) {
                 try {
-                    JsonElement json = new JsonParser().parse(s);
+                    JsonElement json = JsonParser.parseString(s);
                     if (json.isJsonArray() && ((JsonArray) json).size() > 0) {
                         for (JsonElement release : ((JsonArray) json)) {
                             if (release.isJsonObject()
@@ -166,6 +167,11 @@ public class GitHubSource extends ModPackSource {
     public String getUpdateUrl(ModPackConfig config) {
         String latestVersion = getLatestVersion(config);
         return new Replacer().replace(config.getPlaceholders("repository")).replace("version", latestVersion).replaceIn(UPDATE_URL);
+    }
+
+    @Override
+    public String getInfoUrl(ModPackConfig config) {
+        return new Replacer().replace(config.getPlaceholders("repository")).replaceIn(INFO_URL);
     }
 
     @Override

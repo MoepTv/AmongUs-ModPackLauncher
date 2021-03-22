@@ -85,4 +85,12 @@ public class ModPackConfig {
     public String getUpdateUrl() {
         return source.getUpdateUrl(this);
     }
+
+    /**
+     * Get the URL for more info on this mod pack
+     * @return The info url
+     */
+    public String getInfoUrl() {
+        return source.getInfoUrl(this);
+    }
 }

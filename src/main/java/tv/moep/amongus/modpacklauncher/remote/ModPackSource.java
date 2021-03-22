@@ -63,6 +63,13 @@ public abstract class ModPackSource {
     public abstract String getUpdateUrl(ModPackConfig config);
 
     /**
+     * Get the URL where to download updates from manually
+     * @param config The mod pack config
+     * @return The update url
+     */
+    public abstract String getInfoUrl(ModPackConfig config);
+
+    /**
      * Get the name of the source
      * @return The name of the source
      */

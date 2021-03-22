@@ -46,6 +46,7 @@ public class GitLabSource extends ModPackSource {
     private static final String API_URL = "%url%/api/v4/";
     private static final String RELEASES_URL = "%apiurl%projects/%user%%2F%repository%/releases";
     private static final String UPDATE_URL = "%url%/%user%/%repository%/-/releases/%version%";
+    private static final String INFO_URL = "%url%/%user%/%repository%/";
 
     public GitLabSource(ModPackLauncher launcher) {
         super(launcher, REQUIRED_PLACEHOLDERS);
@@ -99,7 +100,7 @@ public class GitLabSource extends ModPackSource {
             String s = launcher.query(new URL(replacer.replaceIn(RELEASES_URL)), "Accept", "application/vnd.github.v3+json");
             if (s != null) {
                 try {
-                    JsonElement json = new JsonParser().parse(s);
+                    JsonElement json = JsonParser.parseString(s);
                     if (json.isJsonArray() && ((JsonArray) json).size() > 0) {
                         for (JsonElement release : ((JsonArray) json)) {
                             if (release.isJsonObject()
@@ -154,6 +155,11 @@ public class GitLabSource extends ModPackSource {
     public String getUpdateUrl(ModPackConfig config) {
         String version = getLatestVersion(config);
         return new Replacer().replace("url", URL).replace(config.getPlaceholders("repository")).replace("version", version).replaceIn(UPDATE_URL);
+    }
+
+    @Override
+    public String getInfoUrl(ModPackConfig config) {
+        return new Replacer().replace(config.getPlaceholders("repository")).replaceIn(INFO_URL);
     }
 
     @Override

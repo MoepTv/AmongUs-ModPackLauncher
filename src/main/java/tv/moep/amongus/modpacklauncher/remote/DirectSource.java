@@ -91,6 +91,11 @@ public class DirectSource extends ModPackSource {
     }
 
     @Override
+    public String getInfoUrl(ModPackConfig config) {
+        return null;
+    }
+
+    @Override
     public String getName() {
         return name;
     }

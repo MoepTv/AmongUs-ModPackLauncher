@@ -13,6 +13,7 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.SwingConstants;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
@@ -21,6 +22,9 @@ import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Desktop;
 import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusEvent;
@@ -58,6 +62,9 @@ public class ModPackLauncherGui extends JFrame {
     private static final Color ELEMENT_BACKGROUND = new Color(0x363636);
     private static final Color ELEMENT_FOREROUND = new Color(0xEAEAEA);
 
+    private static final Color LINK_COLOR = new Color(0x007FF2);
+    private static final Color LINK_HOVER_COLOR = new Color(0x00AAFF);
+
     private final ModPackLauncher launcher;
     private final JList<ModPackListEntry> packList;
 
@@ -85,7 +92,7 @@ public class ModPackLauncherGui extends JFrame {
         pathField.setEditable(false);
         pathField.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 1), new EmptyBorder(4, 4, 4, 4)));
 
-        JButton buttonSelectPath = new HoverButton("Select Steam game folder", ELEMENT_BACKGROUND, ELEMENT_FOREROUND, new Color(0x232323), ELEMENT_FOREROUND);
+        JButton buttonSelectPath = new HoverButton("Select Steam game folder", ELEMENT_BACKGROUND, ELEMENT_FOREROUND.darker(), ELEMENT_BACKGROUND.darker(), ELEMENT_FOREROUND);
         buttonSelectPath.setFont(getContentPane().getFont().deriveFont(Font.BOLD, 14f));
         buttonSelectPath.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 2), new EmptyBorder(3, 3, 3, 3)));
         ActionListener steamFolderSelector = e -> {
@@ -136,11 +143,9 @@ public class ModPackLauncherGui extends JFrame {
 
         JPanel addMoreLine = new JPanel();
         addMoreLine.setBackground(null);
-        JButton addMoreButton = new HoverButton("Install/update a Mod Pack...", ELEMENT_BACKGROUND, ELEMENT_FOREROUND, new Color(0x232323), ELEMENT_FOREROUND);
+        JButton addMoreButton = new HoverButton("Install/update a Mod Pack...", ELEMENT_BACKGROUND, ELEMENT_FOREROUND.darker(), new Color(0x232323), ELEMENT_FOREROUND);
         addMoreButton.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 2), new EmptyBorder(3, 3, 3, 3)));
         addMoreButton.setFont(getContentPane().getFont().deriveFont(Font.BOLD, 14f));
-        addMoreButton.setBackground(ELEMENT_BACKGROUND);
-        addMoreButton.setForeground(ELEMENT_FOREROUND.darker());
         addMoreButton.addActionListener(e -> {
             new ModInstallGui(launcher, this).setVisible(true);
         });
@@ -151,10 +156,15 @@ public class ModPackLauncherGui extends JFrame {
         JButton launchGame = new HoverButton("Launch Game!", new Color(0xFFDE2A), Color.BLACK, new Color(0xF21717), Color.BLACK);
         launchGame.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 2), new EmptyBorder(10, 10, 10, 10)));
 
-        JCheckBox steamBox = new JCheckBox("Via Steam", "true".equals(launcher.getProperties().getProperty("launch-via-steam", "true")));
+        JCheckBox steamBox = new JCheckBox("Start game through Steam", "true".equals(launcher.getProperties().getProperty("launch-via-steam", "true")));
         steamBox.setBackground(null);
         steamBox.setForeground(ELEMENT_FOREROUND);
         steamBox.addActionListener(e -> launcher.setProperty("launch-via-steam", String.valueOf(steamBox.isSelected())));
+
+        JPanel steamLine = new JPanel();
+        steamLine.setBackground(null);
+        steamLine.add(steamBox);
+        getContentPane().add(steamLine);
 
         launchGame.addActionListener(e -> {
             if (packList.getSelectedIndex() > -1 && packList.getSelectedIndex() < packList.getModel().getSize()) {
@@ -174,7 +184,6 @@ public class ModPackLauncherGui extends JFrame {
         JPanel launchLine = new JPanel();
         launchLine.setBackground(null);
         launchLine.add(launchGame);
-        launchLine.add(steamBox);
         getContentPane().add(launchLine);
 
         pack();
@@ -216,7 +225,7 @@ public class ModPackLauncherGui extends JFrame {
                             JOptionPane.YES_NO_OPTION,
                             JOptionPane.INFORMATION_MESSAGE,
                             null,
-                            new String[] {"Update Mod", "Don't update"},
+                            new String[] {"Update Mod", "Show update info", "Don't update"},
                             "Update Mod"
                     );
                     if (n == 0) {
@@ -238,6 +247,10 @@ public class ModPackLauncherGui extends JFrame {
                         }
 
                         updated = true;
+                    } else if (n == 1) {
+                        try {
+                            Desktop.getDesktop().browse(new URI(config.getUpdateUrl()));
+                        } catch (URISyntaxException | IOException ignored) {}
                     }
                 }
             }
@@ -322,25 +335,40 @@ public class ModPackLauncherGui extends JFrame {
 
             setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
-            getContentPane().add(new JLabel("Select Mod Pack:"));
+            getContentPane().add(getTextLine("Select Mod Pack:"));
 
-            JList<ModPackConfig> configList = new JList<>();
-            configList.setFont(getContentPane().getFont().deriveFont(14f));
-            configList.setBackground(ELEMENT_BACKGROUND);
-            configList.setForeground(ELEMENT_FOREROUND);
-            configList.setSelectionBackground(ELEMENT_BACKGROUND);
-            configList.setSelectionForeground(new Color(0xF21717));
-            DefaultListModel<ModPackConfig> model = new DefaultListModel<>();
+            JPanel configList = new JPanel();
+            configList.setBackground(null);
+            configList.setLayout(new GridBagLayout());
+            GridBagConstraints c = new GridBagConstraints();
+            c.insets = new Insets(2, 4, 2, 4);
+            c.fill = GridBagConstraints.HORIZONTAL;
+
             for (ModPackConfig config : launcher.getModPackConfigs()) {
-                model.addElement(config);
-            }
-            configList.setModel(model);
-            configList.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    JList list = (JList) e.getSource();
-                    int index = list.locationToIndex(e.getPoint());
-                    ModPackConfig config = (ModPackConfig) list.getModel().getElementAt(index);
+                c.gridy++;
+
+                JLabel configName = new JLabel(config.toString(), SwingConstants.LEFT);
+                configName.setHorizontalTextPosition(SwingConstants.LEFT);
+                configName.setForeground(ELEMENT_FOREROUND);
+                c.gridwidth = 3;
+                c.gridx = 0;
+                configList.add(configName, c);
+
+                c.gridwidth = 1;
+                c.gridx = 4;
+                if (config.getInfoUrl() != null) {
+                    LinkElement infoButton = new LinkElement("Info", config.getInfoUrl());
+                    infoButton.setAlignmentX(JLabel.RIGHT_ALIGNMENT);
+                    configList.add(infoButton, c);
+                } else {
+                    configList.add(new JLabel(), c);
+                }
+
+                HoverButton installButton = new HoverButton("Install", ELEMENT_BACKGROUND, ELEMENT_FOREROUND.darker(), ELEMENT_BACKGROUND.darker(), ELEMENT_FOREROUND);
+                installButton.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 2), new EmptyBorder(3, 3, 3, 3)));
+                installButton.setFont(getContentPane().getFont().deriveFont(Font.BOLD, 14f));
+                installButton.setAlignmentX(JButton.RIGHT_ALIGNMENT);
+                installButton.addActionListener(e -> {
                     setVisible(false);
                     dispose();
                     Path baseDirectory = getBaseDirectory(parent, config);
@@ -359,13 +387,17 @@ public class ModPackLauncherGui extends JFrame {
                         JOptionPane.showMessageDialog(parent, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                         ex.printStackTrace();
                     }
-                }
-            });
+                });
+
+                c.gridwidth = 1;
+                c.gridx = 5;
+                configList.add(installButton, c);
+            }
 
             getContentPane().add(configList);
 
             getContentPane().add(new JLabel(" "));
-            getContentPane().add(new JLabel("Install from zip file link:"));
+            getContentPane().add(getTextLine("Install from zip file link:"));
 
             JPanel manualInstallLine = new JPanel();
             manualInstallLine.setBackground(null);
@@ -384,7 +416,7 @@ public class ModPackLauncherGui extends JFrame {
             manualInstallLine.add(linkField);
             linkField.setCaretColor(ELEMENT_FOREROUND.brighter());
 
-            JButton linkButton = new HoverButton("Add", ELEMENT_BACKGROUND, ELEMENT_FOREROUND, new Color(0x232323), ELEMENT_FOREROUND);
+            JButton linkButton = new HoverButton("Add", ELEMENT_BACKGROUND, ELEMENT_FOREROUND.darker(), ELEMENT_BACKGROUND.darker(), ELEMENT_FOREROUND);
             linkButton.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 2), new EmptyBorder(3, 3, 3, 3)));
             linkButton.setFont(getContentPane().getFont().deriveFont(Font.BOLD, 14f));
             linkButton.addActionListener(e -> {
@@ -467,6 +499,44 @@ public class ModPackLauncherGui extends JFrame {
                 }
                 return super.getText();
             }
+        }
+    }
+
+    private Component getTextLine(String text) {
+        JPanel line = new JPanel();
+        line.setBackground(null);
+        JLabel label = new JLabel(text);
+        label.setForeground(ELEMENT_FOREROUND);
+        line.add(label);
+        return line;
+    }
+
+    private class LinkElement extends JLabel {
+
+        public LinkElement(String text, String url) {
+            super(text);
+            setForeground(LINK_COLOR);
+
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    try {
+                        Desktop.getDesktop().browse(new URI(url));
+                    } catch (URISyntaxException | IOException ignored) {}
+                }
+
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    setForeground(LINK_HOVER_COLOR);
+                    setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    setForeground(LINK_COLOR);
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            });
         }
     }
 
