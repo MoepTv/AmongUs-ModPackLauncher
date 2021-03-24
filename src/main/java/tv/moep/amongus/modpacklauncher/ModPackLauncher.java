@@ -454,7 +454,11 @@ public class ModPackLauncher {
     }
 
     public void installModPack(Path baseDirectory, ModPackConfig config, String version) throws IOException {
-        Path downloaded = config.downloadUpdate().toPath();
+        String gameVersion = null;
+        if (baseDirectory.getFileName().toString().startsWith("Among Us - Original - ")) {
+            gameVersion = baseDirectory.getFileName().toString().substring("Among Us - Original - ".length());
+        }
+        Path downloaded = config.downloadUpdate(gameVersion).toPath();
         Path modPackFolder = steamFolder.resolve("Among Us - " + config.getName());
         if (Files.exists(modPackFolder)) {
             deleteDirectory(modPackFolder);

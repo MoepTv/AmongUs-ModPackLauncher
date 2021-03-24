@@ -72,10 +72,11 @@ public class ModPackConfig {
 
     /**
      * Download the latest version of a plugin into the target folder specified by the Updater.
+     * @param gameVersion The version of the game to try to download the update for
      * @return A reference to the newly downloaded file or <code>null</code> if not found
      */
-    public File downloadUpdate() {
-        return source.downloadUpdate(this);
+    public File downloadUpdate(String gameVersion) {
+        return source.downloadUpdate(this, gameVersion);
     }
 
     /**

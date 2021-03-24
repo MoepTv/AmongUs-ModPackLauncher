@@ -40,7 +40,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 
 public class GitHubSource extends ModPackSource {
@@ -95,7 +97,7 @@ public class GitHubSource extends ModPackSource {
     }
 
     @Override
-    public File downloadUpdate(ModPackConfig config) {
+    public File downloadUpdate(ModPackConfig config, String gameVersion) {
         try {
             List<String> properties = new ArrayList<>(Arrays.asList("Accept", API_HEADER));
             if (config.getPlaceholders().containsKey("token")) {
@@ -114,6 +116,10 @@ public class GitHubSource extends ModPackSource {
                                     && ((JsonObject) release).has("tag_name")
                                     && ((JsonObject) release).has("assets")
                                     && ((JsonObject) release).get("assets").isJsonArray()) {
+                                String fileName = null;
+                                URL source = null;
+                                String version = ((JsonObject) release).get("tag_name").getAsString();
+
                                 for (JsonElement asset : ((JsonArray) ((JsonObject) release).get("assets"))) {
                                     if (asset.isJsonObject()
                                             && ((JsonObject) asset).has("browser_download_url")
@@ -121,34 +127,46 @@ public class GitHubSource extends ModPackSource {
                                             && ((JsonObject) asset).has("name")) {
                                         String contentType = ((JsonObject) asset).get("content_type").getAsString();
                                         if (ContentType.ZIP.matches(contentType)) {
-                                            String version = ((JsonObject) release).get("tag_name").getAsString();
-                                            File target = new File(launcher.getTempFolder(), ((JsonObject) asset).get("name").getAsString());
-
                                             try {
-                                                URL source = new URL(((JsonObject) asset).get("browser_download_url").getAsString());
-
-                                                HttpURLConnection con = (HttpURLConnection) source.openConnection();
-                                                con.setRequestProperty("User-Agent", launcher.getUserAgent());
-                                                con.addRequestProperty("Accept", API_HEADER);
-                                                con.addRequestProperty("Accept", "application/octet-stream");
-                                                if (config.getPlaceholders().containsKey("token")) {
-                                                    con.addRequestProperty("Authorization", "token " + config.getPlaceholders().get("token"));
-                                                } else if (config.getPlaceholders().containsKey("username") && config.getPlaceholders().containsKey("password")) {
-                                                    String userPass = config.getPlaceholders().get("username") + ":" + config.getPlaceholders().get("password");
-                                                    con.setRequestProperty("Authorization", "Basic " + Base64.getEncoder().encodeToString(userPass.getBytes()));
+                                                fileName = ((JsonObject) asset).get("name").getAsString();
+                                                source = new URL(((JsonObject) asset).get("browser_download_url").getAsString());
+                                                if (gameVersion == null || fileName.contains(gameVersion)) {
+                                                    break;
                                                 }
-                                                con.setUseCaches(false);
-                                                con.connect();
-                                                try (InputStream in = con.getInputStream()) {
-                                                    if (Files.copy(in, target.toPath(), StandardCopyOption.REPLACE_EXISTING) > 0) {
-                                                        return target;
-                                                    }
-                                                }
-                                            } catch (IOException e) {
-                                                launcher.log(Level.SEVERE, "Error while trying to download update " + version + " for " + config.getName() + " from source " + getName() + "! " + e.getMessage());
+                                            } catch (MalformedURLException e) {
+                                                launcher.log(Level.SEVERE, ((JsonObject) asset).get("browser_download_url").getAsString() + " is not a valid URL for update " + version + " for " + config.getName() + " from source " + getName() + "! " + e.getMessage());
                                             }
                                         }
                                     }
+                                }
+
+                                if (fileName != null && source != null) {
+
+                                    File target = new File(launcher.getTempFolder(), fileName);
+
+                                    try {
+                                        HttpURLConnection con = (HttpURLConnection) source.openConnection();
+                                        con.setRequestProperty("User-Agent", launcher.getUserAgent());
+                                        con.addRequestProperty("Accept", API_HEADER);
+                                        con.addRequestProperty("Accept", "application/octet-stream");
+                                        if (config.getPlaceholders().containsKey("token")) {
+                                            con.addRequestProperty("Authorization", "token " + config.getPlaceholders().get("token"));
+                                        } else if (config.getPlaceholders().containsKey("username") && config.getPlaceholders().containsKey("password")) {
+                                            String userPass = config.getPlaceholders().get("username") + ":" + config.getPlaceholders().get("password");
+                                            con.setRequestProperty("Authorization", "Basic " + Base64.getEncoder().encodeToString(userPass.getBytes()));
+                                        }
+                                        con.setUseCaches(false);
+                                        con.connect();
+                                        try (InputStream in = con.getInputStream()) {
+                                            if (Files.copy(in, target.toPath(), StandardCopyOption.REPLACE_EXISTING) > 0) {
+                                                return target;
+                                            }
+                                        }
+                                    } catch (IOException e) {
+                                        launcher.log(Level.SEVERE, "Error while trying to download update " + version + " for " + config.getName() + " from source " + getName() + "! " + e.getMessage());
+                                    }
+                                } else {
+                                    launcher.log(Level.SEVERE, "Unable to find downloadable file for update " + version + " of " + config.getName() + " from source " + getName() + "!");
                                 }
                             }
                         }

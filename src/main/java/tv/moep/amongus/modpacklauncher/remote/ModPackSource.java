@@ -51,9 +51,10 @@ public abstract class ModPackSource {
     /**
      * Download the latest version of a plugin into the target folder specified by the Updater.
      * @param config The mod pack config
+     * @param gameVersion The version of the game to get the files for if multiple are included
      * @return A reference to the newly downloaded file or <code>null</code> if not found
      */
-    public abstract File downloadUpdate(ModPackConfig config);
+    public abstract File downloadUpdate(ModPackConfig config, String gameVersion);
 
     /**
      * Get the URL where to download updates from manually

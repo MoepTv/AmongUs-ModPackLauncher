@@ -94,7 +94,7 @@ public class GitLabSource extends ModPackSource {
     }
 
     @Override
-    public File downloadUpdate(ModPackConfig config) {
+    public File downloadUpdate(ModPackConfig config, String gameVersion) {
         try {
             Replacer replacer = new Replacer().replace("apiurl", API_URL).replace(config.getPlaceholders("repository"));
             String s = launcher.query(new URL(replacer.replaceIn(RELEASES_URL)), "Accept", "application/vnd.github.v3+json");
@@ -109,32 +109,45 @@ public class GitLabSource extends ModPackSource {
                                     && ((JsonObject) release).get("assets").isJsonObject()) {
                                 JsonObject assets = ((JsonObject) release).getAsJsonObject("assets");
                                 if (assets.has("links") && assets.get("links").isJsonArray()) {
+                                    String fileName = null;
+                                    URL source = null;
+                                    String version = ((JsonObject) release).get("tag_name").getAsString();
                                     for (JsonElement asset : assets.getAsJsonArray("links")) {
                                         if (asset.isJsonObject()
-                                                && (((JsonObject) asset).get("name").getAsString().endsWith(".jar")
-                                                        || ((JsonObject) asset).get("url").getAsString().endsWith(".jar"))) {
-                                            String version = ((JsonObject) release).get("tag_name").getAsString();
-                                            File target = new File(launcher.getTempFolder(), ((JsonObject) asset).get("name").getAsString());
+                                                && (((JsonObject) asset).get("name").getAsString().endsWith(".zip")
+                                                        || ((JsonObject) asset).get("url").getAsString().endsWith(".zip"))) {
 
                                             try {
-                                                URL source = new URL(((JsonObject) asset).get("url").getAsString());
-
-                                                HttpURLConnection con = (HttpURLConnection) source.openConnection();
-                                                con.setRequestProperty("User-Agent", launcher.getUserAgent());
-                                                if (config.getPlaceholders().containsKey("token")) {
-                                                    con.setRequestProperty("Private-Token", config.getPlaceholders().get("token"));
+                                                fileName = ((JsonObject) asset).get("name").getAsString();
+                                                source = new URL(((JsonObject) asset).get("url").getAsString());
+                                                if (gameVersion == null || fileName.contains(gameVersion)) {
+                                                    break;
                                                 }
-                                                con.setUseCaches(false);
-                                                con.connect();
-                                                try (InputStream in = con.getInputStream()) {
-                                                    if (Files.copy(in, target.toPath(), StandardCopyOption.REPLACE_EXISTING) > 0) {
-                                                        return target;
-                                                    }
-                                                }
-                                            } catch (IOException e) {
-                                                launcher.log(Level.SEVERE, "Error while trying to download update "
-                                            + version + " for " + config.getName() + " from source " + getName() + "! " + e.getMessage());
+                                            } catch (MalformedURLException e) {
+                                                launcher.log(Level.SEVERE, ((JsonObject) asset).get("url").getAsString() + " is not a valid URL for update " + version + " for " + config.getName() + " from source " + getName() + "! " + e.getMessage());
                                             }
+                                        }
+                                    }
+
+                                    if (fileName != null && source != null) {
+                                        File target = new File(launcher.getTempFolder(), fileName);
+
+                                        try {
+                                            HttpURLConnection con = (HttpURLConnection) source.openConnection();
+                                            con.setRequestProperty("User-Agent", launcher.getUserAgent());
+                                            if (config.getPlaceholders().containsKey("token")) {
+                                                con.setRequestProperty("Private-Token", config.getPlaceholders().get("token"));
+                                            }
+                                            con.setUseCaches(false);
+                                            con.connect();
+                                            try (InputStream in = con.getInputStream()) {
+                                                if (Files.copy(in, target.toPath(), StandardCopyOption.REPLACE_EXISTING) > 0) {
+                                                    return target;
+                                                }
+                                            }
+                                        } catch (IOException e) {
+                                            launcher.log(Level.SEVERE, "Error while trying to download update "
+                                                    + version + " for " + config.getName() + " from source " + getName() + "! " + e.getMessage());
                                         }
                                     }
                                 }

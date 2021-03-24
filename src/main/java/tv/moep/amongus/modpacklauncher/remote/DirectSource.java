@@ -60,7 +60,7 @@ public class DirectSource extends ModPackSource {
     }
 
     @Override
-    public File downloadUpdate(ModPackConfig config) {
+    public File downloadUpdate(ModPackConfig config, String gameVersion) {
         String version = config.getLatestVersion();
         if (version != null) {
 
