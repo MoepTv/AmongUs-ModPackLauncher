@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.HashSet;
 
 public enum ContentType {
+    DLL("dll", "x-msdownload"),
     ZIP("zip", "x-zip", "x-zip-compressed", "x-compressed");
 
     private static final String APPLICATION = "application/";

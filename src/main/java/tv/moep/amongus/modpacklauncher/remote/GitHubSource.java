@@ -40,9 +40,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 
 public class GitHubSource extends ModPackSource {
@@ -126,7 +124,7 @@ public class GitHubSource extends ModPackSource {
                                             && ((JsonObject) asset).has("content_type")
                                             && ((JsonObject) asset).has("name")) {
                                         String contentType = ((JsonObject) asset).get("content_type").getAsString();
-                                        if (ContentType.ZIP.matches(contentType)) {
+                                        if (ContentType.ZIP.matches(contentType) || ContentType.DLL.matches(contentType)) {
                                             try {
                                                 fileName = ((JsonObject) asset).get("name").getAsString();
                                                 source = new URL(((JsonObject) asset).get("browser_download_url").getAsString());

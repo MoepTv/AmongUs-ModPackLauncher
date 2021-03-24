@@ -1,7 +1,7 @@
 package tv.moep.amongus.modpacklauncher.remote;
 
 /*
- * AmongUs-ModPackLauncher - AmongUs-ModPackLauncher
+ * AmongUs-ModPackLauncher - modpacklauncher
  * Copyright (c) 2021 Max Lee (max@themoep.de)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,11 +18,27 @@ package tv.moep.amongus.modpacklauncher.remote;
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-public enum SourceType {
-    MANUAL,
-    DIRECT,
-    CURSEFORGE,
-    GITHUB,
-    GITLAB,
-    NIGHTLY;
+import tv.moep.amongus.modpacklauncher.ModPackConfig;
+import tv.moep.amongus.modpacklauncher.ModPackLauncher;
+
+import java.util.Arrays;
+import java.util.List;
+
+public class NightlySource extends DirectSource {
+
+    private static final List<String> REQUIRED_PLACEHOLDERS = Arrays.asList("user", "repository", "file");
+
+    public NightlySource(ModPackLauncher launcher) {
+        super("Nightly", launcher, null, "https://nightly.link/%user%/%repository%/workflows/main/master/%file%", REQUIRED_PLACEHOLDERS);
+    }
+
+    @Override
+    public String getLatestVersion(ModPackConfig config) {
+        return "nightly";
+    }
+
+    @Override
+    public SourceType getType() {
+        return SourceType.NIGHTLY;
+    }
 }

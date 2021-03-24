@@ -26,6 +26,7 @@ import com.sun.jna.platform.win32.WinReg;
 import tv.moep.amongus.modpacklauncher.remote.GitHubSource;
 import tv.moep.amongus.modpacklauncher.remote.GitLabSource;
 import tv.moep.amongus.modpacklauncher.remote.ModPackSource;
+import tv.moep.amongus.modpacklauncher.remote.NightlySource;
 import tv.moep.amongus.modpacklauncher.remote.SourceType;
 
 import javax.imageio.ImageIO;
@@ -83,6 +84,9 @@ public class ModPackLauncher {
     private final Properties properties = new Properties();
     private final Map<SourceType, ModPackSource> sources = new EnumMap<>(SourceType.class);
     private final Map<String, ModPackConfig> modPackConfigs = new LinkedHashMap<>();
+    private final ModPackConfig bepInExConfig;
+    private final ModPackConfig reactorConfig;
+    private final ModPackConfig customServerModConfig;
     private BufferedImage icon;
     private BufferedImage loadingImage;
 
@@ -107,12 +111,27 @@ public class ModPackLauncher {
     private ModPackLauncher() {
         sources.put(SourceType.GITHUB, new GitHubSource(this));
         sources.put(SourceType.GITLAB, new GitLabSource(this));
+        sources.put(SourceType.NIGHTLY, new NightlySource(this));
 
         updateConfig = new ModPackConfig(getName(), getSource(SourceType.GITHUB), mapOf(
                 "user", "MoepTv",
                 "repository", "AmongUs-ModPackLauncher"
         ));
         latestVersion = updateConfig.getLatestVersion();
+
+        bepInExConfig = new ModPackConfig(getName(), getSource(SourceType.GITHUB), mapOf(
+                "user", "NuclearPowered",
+                "repository", "BepInEx"
+        ));
+        reactorConfig = new ModPackConfig("Reactor", getSource(SourceType.NIGHTLY), mapOf(
+                "user", "NuclearPowered",
+                "repository", "Reactor",
+                "file", "Reactor.dll.zip"
+        ));
+        customServerModConfig = new ModPackConfig("Unify", getSource(SourceType.GITHUB), mapOf(
+                "user", "MoltenMods",
+                "repository", "Unify"
+        ));
 
         // TODO: Read remote or from config
         addModPackConfig(new ModPackConfig("TheOtherRoles", getSource(SourceType.GITHUB), mapOf(
@@ -466,21 +485,7 @@ public class ModPackLauncher {
 
         copyDirectory(baseDirectory, modPackFolder);
 
-        ZipFile zip = new ZipFile(downloaded.toFile());
-        zip.stream().forEach(e -> {
-            try {
-                Path entryPath = modPackFolder.resolve(e.toString());
-                Files.createDirectories(entryPath.getParent());
-                if (e.isDirectory()) {
-                    Files.createDirectory(entryPath);
-                } else {
-                    Files.copy(zip.getInputStream(e), entryPath, StandardCopyOption.REPLACE_EXISTING);
-                }
-            } catch (IOException e1) {
-                e1.printStackTrace();
-            }
-        });
-        zip.close();
+        unzip(downloaded.toFile(), modPackFolder);
 
         try {
             Files.delete(downloaded);
@@ -507,7 +512,25 @@ public class ModPackLauncher {
         updateModPacks();
     }
 
-    public void launch(ModPack modPack, boolean viaSteam) throws IOException {
+    private void unzip(File zipFile, Path targetFolder) throws IOException {
+        ZipFile zip = new ZipFile(zipFile);
+        zip.stream().forEach(e -> {
+            try {
+                Path entryPath = targetFolder.resolve(e.toString());
+                Files.createDirectories(entryPath.getParent());
+                if (e.isDirectory()) {
+                    Files.createDirectory(entryPath);
+                } else {
+                    Files.copy(zip.getInputStream(e), entryPath, StandardCopyOption.REPLACE_EXISTING);
+                }
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+        });
+        zip.close();
+    }
+
+    public void launch(ModPack modPack, boolean viaSteam, boolean customServerMod) throws IOException {
         if (Files.exists(modPack.getPath()) && Files.isDirectory(modPack.getPath())) {
             deleteDirectory(steamGame);
             try {
@@ -525,6 +548,40 @@ public class ModPackLauncher {
                         properties.setProperty("version", modPack.getVersion());
                     }
                     properties.store(writer, getName() + " " + getVersion() + " Config");
+                }
+            }
+            if (customServerMod) {
+                String gameVersion = parseGameVersion(steamGame);
+                Path bepInExFolder = steamGame.resolve("BepInEx");
+                if (!Files.exists(bepInExFolder)) {
+                    File temp = bepInExConfig.downloadUpdate(gameVersion);
+                    if (temp != null) {
+                        unzip(temp, steamGame);
+                    }
+                }
+                Path pluginsFolder = bepInExFolder.resolve("plugins");
+                if (!Files.exists(pluginsFolder)) {
+                    Files.createDirectories(pluginsFolder);
+                }
+                if (Files.list(pluginsFolder).noneMatch(p -> p.getFileName().startsWith("Reactor") && p.getFileName().endsWith(".dll"))) {
+                    File temp = reactorConfig.downloadUpdate(gameVersion);
+                    if (temp != null) {
+                        unzip(temp, pluginsFolder);
+                    }
+                }
+                if (Files.list(pluginsFolder).noneMatch(p -> p.getFileName().startsWith("Unify") && p.getFileName().endsWith(".dll"))) {
+                    File temp = customServerModConfig.downloadUpdate(gameVersion);
+                    if (temp != null) {
+                        Files.copy(temp.toPath(), pluginsFolder.resolve(temp.getName()));
+                    }
+                }
+                Path bepInExConfigFolder = bepInExFolder.resolve("config");
+                if (!Files.exists(bepInExConfigFolder)) {
+                    Files.createDirectories(bepInExConfigFolder);
+                }
+                Path unifyConfig = bepInExConfigFolder.resolve("daemon.unify.reactor.cfg");
+                if (!Files.exists(unifyConfig)) {
+                    Files.copy(ModPackLauncher.class.getClassLoader().getResourceAsStream("daemon.unify.reactor.cfg"), unifyConfig);
                 }
             }
             if (viaSteam) {

@@ -161,16 +161,22 @@ public class ModPackLauncherGui extends JFrame {
         steamBox.setForeground(ELEMENT_FOREROUND);
         steamBox.addActionListener(e -> launcher.setProperty("launch-via-steam", String.valueOf(steamBox.isSelected())));
 
-        JPanel steamLine = new JPanel();
-        steamLine.setBackground(null);
-        steamLine.add(steamBox);
-        getContentPane().add(steamLine);
+        JCheckBox customServerBox = new JCheckBox("Install custom server mod", "true".equals(launcher.getProperties().getProperty("run-with-custom-server-mod", "true")));
+        customServerBox.setBackground(null);
+        customServerBox.setForeground(ELEMENT_FOREROUND);
+        customServerBox.addActionListener(e -> launcher.setProperty("run-with-custom-server-mod", String.valueOf(customServerBox.isSelected())));
+
+        JPanel optionsLine = new JPanel();
+        optionsLine.setBackground(null);
+        optionsLine.add(steamBox);
+        optionsLine.add(customServerBox);
+        getContentPane().add(optionsLine);
 
         launchGame.addActionListener(e -> {
             if (packList.getSelectedIndex() > -1 && packList.getSelectedIndex() < packList.getModel().getSize()) {
                 ModPackListEntry modPack = packList.getModel().getElementAt(packList.getSelectedIndex());
                 try {
-                    launcher.launch(modPack.getModPack(), steamBox.isSelected());
+                    launcher.launch(modPack.getModPack(), steamBox.isSelected(), customServerBox.isSelected());
                 } catch (IOException ex) {
                     JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                     ex.printStackTrace();
