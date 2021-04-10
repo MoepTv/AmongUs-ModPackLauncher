@@ -354,19 +354,17 @@ public class ModPackLauncher {
         if (Files.exists(steamGame) && Files.isDirectory(steamGame)) {
             try {
                 selected = readSelected();
-                if (selected == null || selected.startsWith("Original")) {
-                    String version = parseGameVersion(steamGame);
-                    if (version != null) {
-                        Path originalGame = steamFolder.resolve("Among Us - Original - " + version);
-                        selected = "Original - " + version;
-                        if (!Files.exists(originalGame)) {
-                            copyDirectory(steamGame, originalGame);
-                            Properties properties = new Properties();
-                            try (OutputStream out = Files.newOutputStream(originalGame.resolve("modpack.properties"))) {
-                                properties.setProperty("name", "Original");
-                                properties.setProperty("version", version);
-                                properties.store(out, getName() + " " + getVersion() + " Config");
-                            }
+                String version = parseGameVersion(steamGame);
+                if (version != null) {
+                    Path originalGame = steamFolder.resolve("Among Us - Original - " + version);
+                    selected = "Original - " + version;
+                    if (!Files.exists(originalGame)) {
+                        copyDirectory(steamGame, originalGame);
+                        Properties properties = new Properties();
+                        try (OutputStream out = Files.newOutputStream(originalGame.resolve("modpack.properties"))) {
+                            properties.setProperty("name", "Original");
+                            properties.setProperty("version", version);
+                            properties.store(out, getName() + " " + getVersion() + " Config");
                         }
                     }
                 }
@@ -615,14 +613,14 @@ public class ModPackLauncher {
                     try {
                         Files.delete(p);
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        log(Level.SEVERE, "Unable to delete file " + p, e);
                     }
                 }
             });
             Files.delete(folder);
         } catch (NoSuchFileException ignored) {
         } catch (IOException e) {
-            e.printStackTrace();
+            log(Level.SEVERE, "Error while deleting folder " + folder, e);
         }
     }
 
@@ -652,7 +650,7 @@ public class ModPackLauncher {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(Files.newInputStream(gameFile)))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.contains("Innersloth") && line.contains("Among Us")) {
+                if ((line.contains("Innersloth") || line.contains("public.app-category.games")) && line.contains("Among Us")) {
                     Matcher matcher = VERSION_PATTERN.matcher(line);
                     if (matcher.matches()) {
                         return matcher.group(1);

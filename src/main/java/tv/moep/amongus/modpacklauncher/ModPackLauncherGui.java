@@ -39,6 +39,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
 
 /*
  * AmongUs-ModPackLauncher - AmongUs-ModPackLauncher
@@ -179,7 +180,7 @@ public class ModPackLauncherGui extends JFrame {
                     launcher.launch(modPack.getModPack(), steamBox.isSelected(), customServerBox.isSelected());
                 } catch (IOException ex) {
                     JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                    ex.printStackTrace();
+                    launcher.log(Level.SEVERE, "Error while starting", ex);
                 }
             } else {
                 JOptionPane.showMessageDialog(this, "Please select the ModPack to launch!");
