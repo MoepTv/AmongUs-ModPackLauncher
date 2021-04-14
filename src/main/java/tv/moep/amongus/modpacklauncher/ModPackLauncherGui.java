@@ -157,10 +157,10 @@ public class ModPackLauncherGui extends JFrame {
         JButton launchGame = new HoverButton("Launch Game!", new Color(0xFFDE2A), Color.BLACK, new Color(0xF21717), Color.BLACK);
         launchGame.setBorder(new CompoundBorder(new LineBorder(Color.BLACK, 2), new EmptyBorder(10, 10, 10, 10)));
 
-        JCheckBox steamBox = new JCheckBox("Start game through Steam", "true".equals(launcher.getProperties().getProperty("launch-via-steam", "true")));
+        JCheckBox steamBox = new JCheckBox("Start game through Steam", "true".equals(launcher.getProperties().getProperty("start-via-steam", "false")));
         steamBox.setBackground(null);
         steamBox.setForeground(ELEMENT_FOREROUND);
-        steamBox.addActionListener(e -> launcher.setProperty("launch-via-steam", String.valueOf(steamBox.isSelected())));
+        steamBox.addActionListener(e -> launcher.setProperty("start-via-steam", String.valueOf(steamBox.isSelected())));
 
         JCheckBox customServerBox = new JCheckBox("Install custom server mod", "true".equals(launcher.getProperties().getProperty("run-with-custom-server-mod", "true")));
         customServerBox.setBackground(null);

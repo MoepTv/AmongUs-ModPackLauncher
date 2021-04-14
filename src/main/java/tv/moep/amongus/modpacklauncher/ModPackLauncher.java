@@ -359,6 +359,7 @@ public class ModPackLauncher {
                     Path originalGame = steamFolder.resolve("Among Us - Original - " + version);
                     selected = "Original - " + version;
                     if (!Files.exists(originalGame)) {
+                        cleanDirectory(steamGame);
                         copyDirectory(steamGame, originalGame);
                         Properties properties = new Properties();
                         try (OutputStream out = Files.newOutputStream(originalGame.resolve("modpack.properties"))) {
@@ -375,6 +376,18 @@ public class ModPackLauncher {
 
         updateModPacks();
         setProperty("steam-folder", path.toAbsolutePath().toString());
+    }
+
+    private void cleanDirectory(Path steamGame) {
+        deleteDirectory(steamGame.resolve("BepInEx"));
+        deleteDirectory(steamGame.resolve("mono"));
+        try {
+            Files.deleteIfExists(steamGame.resolve("doorstop_config.ini"));
+            Files.deleteIfExists(steamGame.resolve("winhttp.dll"));
+            Files.deleteIfExists(steamGame.resolve("modpack.properties"));
+        } catch (IOException e) {
+            log(Level.SEVERE, "Error while trying to remove mod pack files from " + steamGame, e);
+        }
     }
 
     private void updateModPacks() {
@@ -491,14 +504,6 @@ public class ModPackLauncher {
             e.printStackTrace();
         }
 
-        // Delete steam_appid.txt, otherwise Steam might auto-update the modded game
-        try {
-            Files.delete(modPackFolder.resolve("steam_appid.txt"));
-        } catch (NoSuchFileException ignored) {
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
         File propertiesFile = modPackFolder.resolve("modpack.properties").toFile();
         Properties properties = loadModPackProperties(modPackFolder);
         try (FileWriter writer = new FileWriter(propertiesFile)) {
@@ -530,14 +535,15 @@ public class ModPackLauncher {
 
     public void launch(ModPack modPack, boolean viaSteam, boolean customServerMod) throws IOException {
         if (Files.exists(modPack.getPath()) && Files.isDirectory(modPack.getPath())) {
-            deleteDirectory(steamGame);
+            Path gameFolder = viaSteam ? steamGame : steamFolder.resolve("Among Us Modded");
+            deleteDirectory(gameFolder);
             try {
-                Files.delete(steamGame);
+                Files.delete(gameFolder);
             } catch (IOException ignored) {}
 
-            copyDirectory(modPack.getPath(), steamGame);
+            copyDirectory(modPack.getPath(), gameFolder);
 
-            File propertiesFile = steamGame.resolve("modpack.properties").toFile();
+            File propertiesFile = gameFolder.resolve("modpack.properties").toFile();
             if (!propertiesFile.exists()) {
                 Properties properties = new Properties();
                 try (FileWriter writer = new FileWriter(propertiesFile)) {
@@ -549,12 +555,12 @@ public class ModPackLauncher {
                 }
             }
             if (customServerMod) {
-                String gameVersion = parseGameVersion(steamGame);
-                Path bepInExFolder = steamGame.resolve("BepInEx");
+                String gameVersion = parseGameVersion(gameFolder);
+                Path bepInExFolder = gameFolder.resolve("BepInEx");
                 if (!Files.exists(bepInExFolder)) {
                     File temp = bepInExConfig.downloadUpdate(gameVersion);
                     if (temp != null) {
-                        unzip(temp, steamGame);
+                        unzip(temp, gameFolder);
                     }
                 }
                 Path pluginsFolder = bepInExFolder.resolve("plugins");
@@ -587,10 +593,10 @@ public class ModPackLauncher {
                     Desktop.getDesktop().browse(new URI("steam://run/945360/"));
                 } catch (URISyntaxException e) {
                     e.printStackTrace();
-                    startGame(steamGame.resolve("Among Us.exe").toString());
+                    startGame(gameFolder.resolve("Among Us.exe").toString());
                 }
             } else {
-                startGame(steamGame.resolve("Among Us.exe").toString());
+                startGame(gameFolder.resolve("Among Us.exe").toString());
             }
         }
     }
